@@ -20,7 +20,7 @@ st.markdown("""
     .stTextArea>div>div>textarea { background-color: #2d3436; color: white; font-family: 'Consolas', monospace; }
     .metric-container { background-color: #1e1e1e; padding: 15px; border-radius: 10px; margin: 10px 0; border: 1px solid #333; }
     </style>
-    """, unsafe_allow_index=True)
+    """, unsafe_allow_html=True)
 
 class UltimateBotV28:
     def __init__(self, data):
@@ -132,14 +132,15 @@ if st.button("🔍 PHÂN TÍCH CHIẾN LƯỢC"):
                 st.markdown(f"### 【 {r['name']} 】")
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.markdown(f"<div class='metric-container'><b>Áp suất S:</b><br><span style='font-size:24px; color:{r['color']}'>{r['avg_s']:.2f}</span></div>", unsafe_allow_index=True)
+                    st.markdown(f"<div class='metric-container'><b>Áp suất S:</b><br><span style='font-size:24px; color:{r['color']}'>{r['avg_s']:.2f}</span></div>", unsafe_allow_html=True)
                 with col2:
-                    st.markdown(f"<div class='metric-container'><b>Khớp Tiền Bão:</b><br><span style='font-size:24px; color:#00cec9'>{r['sim']:.1f}%</span></div>", unsafe_allow_index=True)
+                    st.markdown(f"<div class='metric-container'><b>Khớp Tiền Bão:</b><br><span style='font-size:24px; color:#00cec9'>{r['sim']:.1f}%</span></div>", unsafe_allow_html=True)
                 
                 st.write(f"**Trạng thái:** {r['pressure']}")
                 st.write(f"**Gene gần nhất:** `{r['pattern']}`")
                 st.info(f"{r['horizon']}")
                 st.success(f"➔ {r['decision']}")
                 st.markdown("---")
+
 
 st.caption("Phiên bản V28 tối ưu cho thiết bị di động. Chúc ông giáo rực rỡ!")
