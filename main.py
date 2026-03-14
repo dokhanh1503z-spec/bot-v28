@@ -64,7 +64,7 @@ class UltimateBotV31:
         s4=sum(1 for s in streaks if s>=4)
 
         if s4==0:
-            return 999
+            return None
 
         return s2/s4
 
@@ -75,35 +75,28 @@ class UltimateBotV31:
 
     def similarity(self,a,b):
 
-        match=0
-
-        for i in range(len(a)):
-
-            if a[-i-1]==b[-i-1]:
-                match+=1
+        match=sum(1 for x,y in zip(a,b) if x==y)
 
         return match/len(a)
 
 
     # ======================
-    # TÌM QUÁ KHỨ
+    # SEARCH HISTORY
     # ======================
 
-    def search_history(self,gene):
-
-        vision=80
+    def search_history(self,gene,vision):
 
         current=gene[-vision:]
 
         matches=[]
 
-        for i in range(len(gene)-vision-100):
+        for i in range(len(gene)-vision-5):
 
             past=gene[i:i+vision]
 
             sim=self.similarity(current,past)
 
-            if sim>0.75:
+            if sim>0.6:
 
                 matches.append(i)
 
@@ -111,33 +104,47 @@ class UltimateBotV31:
 
 
     # ======================
-    # DỰ BÁO 100 VÁN
+    # FORECAST
     # ======================
 
     def forecast(self,seq):
+
+        vision=40
 
         streaks=self.get_streaks(seq)
 
         gene=self.encode_gene(streaks)
 
-        vision=80
+        if len(gene)<vision+20:
+            return None
+
 
         current_streaks=streaks[-vision:]
 
         E_now=self.calculate_E(current_streaks)
 
-        history=self.search_history(gene)
+        history=self.search_history(gene,vision)
+
 
         long_count=0
         short_count=0
 
+
         for h in history:
 
-            future=seq[h:h+100]
+            start=sum(streaks[:h+vision])
+
+            future=seq[start:start+100]
+
+            if len(future)<30:
+                continue
 
             fs=self.get_streaks(future)
 
             E_future=self.calculate_E(fs)
+
+            if E_future is None:
+                continue
 
             if E_future<2:
                 long_count+=1
@@ -145,10 +152,17 @@ class UltimateBotV31:
                 short_count+=1
 
 
-        total=max(1,long_count+short_count)
+        total=long_count+short_count
 
-        long_rate=long_count/total
-        short_rate=short_count/total
+        if total==0:
+
+            long_rate=0
+            short_rate=0
+
+        else:
+
+            long_rate=long_count/total
+            short_rate=short_count/total
 
 
         if long_rate>0.6:
@@ -161,11 +175,11 @@ class UltimateBotV31:
 
         return {
 
-            "E_now":round(E_now,2),
-            "matches":len(history),
-            "long_rate":round(long_rate*100,1),
-            "short_rate":round(short_rate*100,1),
-            "decision":decision,
+            "E_now": round(E_now,2) if E_now else 0,
+            "matches": len(history),
+            "long_rate": round(long_rate*100,1),
+            "short_rate": round(short_rate*100,1),
+            "decision": decision,
             "gene":" ".join(gene[-20:])
         }
 
@@ -181,6 +195,10 @@ raw_input=st.text_area("Dữ liệu 1 2 3 4")
 if st.button("Phân tích"):
 
     data=[int(x) for x in raw_input if x in "1234"]
+
+    if len(data)<200:
+        st.warning("Cần ít nhất 200 dữ liệu")
+        st.stop()
 
     bot=UltimateBotV31(data)
 
