@@ -1,8 +1,9 @@
 import streamlit as st
+import math
 
-st.set_page_config(page_title="V32 LONG VISION GENE AI", layout="centered")
+st.set_page_config(page_title="V33 ENTROPY MULTI VISION AI", layout="centered")
 
-class UltimateBotV32:
+class UltimateBotV33:
 
     def __init__(self,data):
 
@@ -55,7 +56,7 @@ class UltimateBotV32:
 
 
     # ======================
-    # TÍNH E
+    # E RATIO
     # ======================
 
     def calculate_E(self,streaks):
@@ -70,6 +71,30 @@ class UltimateBotV32:
 
 
     # ======================
+    # GENE ENTROPY
+    # ======================
+
+    def gene_entropy(self,gene,window=60):
+
+        segment=gene[-window:]
+
+        total=len(segment)
+
+        px=segment.count("X")/total
+        ps=segment.count("S")/total
+        pl=segment.count("L")/total
+
+        entropy=0
+
+        for p in [px,ps,pl]:
+
+            if p>0:
+                entropy-=p*math.log2(p)
+
+        return entropy
+
+
+    # ======================
     # WEIGHTED SIMILARITY
     # ======================
 
@@ -80,7 +105,7 @@ class UltimateBotV32:
 
         for i in range(len(a)):
 
-            weight=(i+1)   # gene gần hiện tại quan trọng hơn
+            weight=(i+1)**1.5
 
             if a[i]==b[i]:
                 score+=weight
@@ -100,7 +125,7 @@ class UltimateBotV32:
 
         sims=[]
 
-        for i in range(len(gene)-vision-100):
+        for i in range(len(gene)-vision-1):
 
             past=gene[i:i+vision]
 
@@ -110,18 +135,18 @@ class UltimateBotV32:
 
         sims.sort(reverse=True)
 
-        top=sims[:40]   # lấy 40 match tốt nhất
+        filtered=[x for x in sims if x[0]>0.55]
+
+        top=filtered[:40]
 
         return [x[1] for x in top]
 
 
     # ======================
-    # FORECAST
+    # FORECAST CORE
     # ======================
 
-    def forecast(self,seq):
-
-        vision=80
+    def run_forecast(self,seq,vision):
 
         streaks=self.get_streaks(seq)
 
@@ -130,17 +155,10 @@ class UltimateBotV32:
         if len(gene)<vision+200:
             return None
 
-
-        current_streaks=streaks[-vision:]
-
-        E_now=self.calculate_E(current_streaks)
-
         history=self.search_history(gene,vision)
-
 
         long_count=0
         short_count=0
-
 
         for h in history:
 
@@ -163,36 +181,58 @@ class UltimateBotV32:
             else:
                 short_count+=1
 
-
         total=long_count+short_count
 
         if total==0:
+            return 0.5
 
-            long_rate=0
-            short_rate=0
-
-        else:
-
-            long_rate=long_count/total
-            short_rate=short_count/total
+        return long_count/total
 
 
-        if long_rate>0.65:
-            decision="🎯 CẦU DÀI 100 VÁN"
+    # ======================
+    # FINAL FORECAST
+    # ======================
+
+    def forecast(self,seq):
+
+        streaks=self.get_streaks(seq)
+
+        gene=self.encode_gene(streaks)
+
+        entropy=self.gene_entropy(gene)
+
+        r40=self.run_forecast(seq,40)
+        r80=self.run_forecast(seq,80)
+        r120=self.run_forecast(seq,120)
+
+        votes=[r40,r80,r120]
+
+        long_rate=sum(votes)/len(votes)
+        short_rate=1-long_rate
+
+        current_streaks=streaks[-120:]
+
+        E_now=self.calculate_E(current_streaks)
+
+        if entropy<1.2 and long_rate>0.6:
+            decision="🔥 SIÊU CẦU DÀI"
+        elif long_rate>0.65:
+            decision="🎯 CẦU DÀI"
         elif short_rate>0.65:
             decision="🎯 CẦU NGẮN"
+        elif entropy>1.45:
+            decision="🌪 HỆ THỐNG NHIỄU"
         else:
             decision="🛡️ KHÔNG RÕ"
-
 
         return {
 
             "E_now": round(E_now,2) if E_now else 0,
-            "matches": len(history),
+            "entropy": round(entropy,3),
             "long_rate": round(long_rate*100,1),
             "short_rate": round(short_rate*100,1),
             "decision": decision,
-            "gene":" ".join(gene[-30:])
+            "gene":" ".join(gene[-40:])
         }
 
 
@@ -200,7 +240,7 @@ class UltimateBotV32:
 # UI
 # ======================
 
-st.title("🧠 V32 LONG VISION GENE AI")
+st.title("🧠 V33 ENTROPY MULTI VISION AI")
 
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 
@@ -212,7 +252,7 @@ if st.button("Phân tích"):
         st.warning("Cần ít nhất 300 dữ liệu")
         st.stop()
 
-    bot=UltimateBotV32(data)
+    bot=UltimateBotV33(data)
 
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
@@ -220,7 +260,7 @@ if st.button("Phân tích"):
     st.subheader("CHẴN / LẺ")
 
     st.metric("E hiện tại",r1["E_now"])
-    st.metric("Match quá khứ",r1["matches"])
+    st.metric("Gene Entropy",r1["entropy"])
 
     st.write("Gene gần:",r1["gene"])
 
@@ -233,7 +273,7 @@ if st.button("Phân tích"):
     st.subheader("TO / NHỎ")
 
     st.metric("E hiện tại",r2["E_now"])
-    st.metric("Match quá khứ",r2["matches"])
+    st.metric("Gene Entropy",r2["entropy"])
 
     st.write("Gene gần:",r2["gene"])
 
