@@ -1,9 +1,9 @@
 import streamlit as st
 import math
 
-st.set_page_config(page_title="V33 ENTROPY MULTI VISION AI", layout="centered")
+st.set_page_config(page_title="V34 SYSTEM BEHAVIOR AI", layout="centered")
 
-class UltimateBotV33:
+class UltimateBotV34:
 
     def __init__(self,data):
 
@@ -74,20 +74,17 @@ class UltimateBotV33:
     # GENE ENTROPY
     # ======================
 
-    def gene_entropy(self,gene,window=60):
+    def gene_entropy(self,gene):
 
-        segment=gene[-window:]
+        total=len(gene)
 
-        total=len(segment)
-
-        px=segment.count("X")/total
-        ps=segment.count("S")/total
-        pl=segment.count("L")/total
+        px=gene.count("X")/total
+        ps=gene.count("S")/total
+        pl=gene.count("L")/total
 
         entropy=0
 
         for p in [px,ps,pl]:
-
             if p>0:
                 entropy-=p*math.log2(p)
 
@@ -95,7 +92,33 @@ class UltimateBotV33:
 
 
     # ======================
-    # WEIGHTED SIMILARITY
+    # ENTROPY TIMELINE
+    # ======================
+
+    def entropy_trend(self,gene):
+
+        windows=[30,40,50,60]
+
+        values=[]
+
+        for w in windows:
+
+            if len(gene)>w:
+
+                segment=gene[-w:]
+
+                values.append(self.gene_entropy(segment))
+
+        if len(values)<2:
+            return 0
+
+        trend=values[0]-values[-1]
+
+        return trend
+
+
+    # ======================
+    # SIMILARITY
     # ======================
 
     def similarity(self,a,b):
@@ -116,7 +139,7 @@ class UltimateBotV33:
 
 
     # ======================
-    # SEARCH HISTORY
+    # HISTORY SEARCH
     # ======================
 
     def search_history(self,gene,vision):
@@ -137,7 +160,7 @@ class UltimateBotV33:
 
         filtered=[x for x in sims if x[0]>0.55]
 
-        top=filtered[:40]
+        top=filtered[:50]
 
         return [x[1] for x in top]
 
@@ -151,9 +174,6 @@ class UltimateBotV33:
         streaks=self.get_streaks(seq)
 
         gene=self.encode_gene(streaks)
-
-        if len(gene)<vision+200:
-            return None
 
         history=self.search_history(gene,vision)
 
@@ -190,6 +210,31 @@ class UltimateBotV33:
 
 
     # ======================
+    # CYCLE DETECTOR
+    # ======================
+
+    def cycle_hint(self,seq):
+
+        streaks=self.get_streaks(seq)
+
+        indexes=[]
+
+        for i in range(len(streaks)):
+
+            if streaks[i]>=6:
+                indexes.append(i)
+
+        if len(indexes)<3:
+            return 0
+
+        gaps=[indexes[i+1]-indexes[i] for i in range(len(indexes)-1)]
+
+        avg_gap=sum(gaps)/len(gaps)
+
+        return avg_gap
+
+
+    # ======================
     # FINAL FORECAST
     # ======================
 
@@ -199,7 +244,9 @@ class UltimateBotV33:
 
         gene=self.encode_gene(streaks)
 
-        entropy=self.gene_entropy(gene)
+        entropy=self.gene_entropy(gene[-60:])
+
+        entropy_move=self.entropy_trend(gene)
 
         r40=self.run_forecast(seq,40)
         r80=self.run_forecast(seq,80)
@@ -214,14 +261,16 @@ class UltimateBotV33:
 
         E_now=self.calculate_E(current_streaks)
 
-        if entropy<1.2 and long_rate>0.6:
+        cycle=self.cycle_hint(seq)
+
+        if entropy<1.2 and entropy_move>0.05 and long_rate>0.6:
             decision="🔥 SIÊU CẦU DÀI"
         elif long_rate>0.65:
             decision="🎯 CẦU DÀI"
         elif short_rate>0.65:
             decision="🎯 CẦU NGẮN"
         elif entropy>1.45:
-            decision="🌪 HỆ THỐNG NHIỄU"
+            decision="🌪 NHIỄU"
         else:
             decision="🛡️ KHÔNG RÕ"
 
@@ -229,6 +278,8 @@ class UltimateBotV33:
 
             "E_now": round(E_now,2) if E_now else 0,
             "entropy": round(entropy,3),
+            "entropy_trend": round(entropy_move,3),
+            "cycle_gap": round(cycle,1),
             "long_rate": round(long_rate*100,1),
             "short_rate": round(short_rate*100,1),
             "decision": decision,
@@ -240,7 +291,7 @@ class UltimateBotV33:
 # UI
 # ======================
 
-st.title("🧠 V33 ENTROPY MULTI VISION AI")
+st.title("🧠 V34 SYSTEM BEHAVIOR AI")
 
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 
@@ -252,7 +303,7 @@ if st.button("Phân tích"):
         st.warning("Cần ít nhất 300 dữ liệu")
         st.stop()
 
-    bot=UltimateBotV33(data)
+    bot=UltimateBotV34(data)
 
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
@@ -260,7 +311,8 @@ if st.button("Phân tích"):
     st.subheader("CHẴN / LẺ")
 
     st.metric("E hiện tại",r1["E_now"])
-    st.metric("Gene Entropy",r1["entropy"])
+    st.metric("Entropy",r1["entropy"])
+    st.metric("Entropy Trend",r1["entropy_trend"])
 
     st.write("Gene gần:",r1["gene"])
 
@@ -273,7 +325,8 @@ if st.button("Phân tích"):
     st.subheader("TO / NHỎ")
 
     st.metric("E hiện tại",r2["E_now"])
-    st.metric("Gene Entropy",r2["entropy"])
+    st.metric("Entropy",r2["entropy"])
+    st.metric("Entropy Trend",r2["entropy_trend"])
 
     st.write("Gene gần:",r2["gene"])
 
