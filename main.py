@@ -1,23 +1,8 @@
 import streamlit as st
 
-st.set_page_config(page_title="V30 STRUCTURE AI", layout="centered")
+st.set_page_config(page_title="V31 GENE AI", layout="centered")
 
-st.markdown("""
-<style>
-.main { background-color: #121212; color: white; }
-.stButton>button {
-    width:100%;
-    height:3.5em;
-    border-radius:10px;
-    font-size:18px;
-    background:#0984e3;
-    color:white;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-class UltimateBotV30:
+class UltimateBotV31:
 
     def __init__(self,data):
 
@@ -27,9 +12,9 @@ class UltimateBotV30:
         self.tn_seq=[x>2 for x in data]
 
 
-    # =========================
-    # TÍNH STREAK
-    # =========================
+    # ======================
+    # STREAK
+    # ======================
 
     def get_streaks(self,seq):
 
@@ -49,9 +34,9 @@ class UltimateBotV30:
         return streaks
 
 
-    # =========================
-    # ENCODE GENE
-    # =========================
+    # ======================
+    # GENE ENCODE
+    # ======================
 
     def encode_gene(self,streaks):
 
@@ -61,7 +46,7 @@ class UltimateBotV30:
 
             if s==1:
                 gene.append("X")
-            elif s<4:
+            elif s<=3:
                 gene.append("S")
             else:
                 gene.append("L")
@@ -69,9 +54,9 @@ class UltimateBotV30:
         return gene
 
 
-    # =========================
+    # ======================
     # TÍNH E
-    # =========================
+    # ======================
 
     def calculate_E(self,streaks):
 
@@ -84,166 +69,145 @@ class UltimateBotV30:
         return s2/s4
 
 
-    # =========================
-    # PHÂN BỐ STREAK
-    # =========================
+    # ======================
+    # SIMILARITY
+    # ======================
 
-    def streak_distribution(self,streaks):
-
-        s2=sum(1 for s in streaks if s==2)
-        s3=sum(1 for s in streaks if s==3)
-        s4=sum(1 for s in streaks if s>=4)
-
-        return s2,s3,s4
-
-
-    # =========================
-    # PHASE DETECTOR
-    # =========================
-
-    def detect_phase(self,E):
-
-        if E>2:
-            return "⚡ CẦU NGẮN (BẺ)"
-        elif E<2:
-            return "🌊 CẦU DÀI (ĐU)"
-        else:
-            return "🧊 TRUNG TÍNH"
-
-
-    # =========================
-    # TÌM CẤU TRÚC QUÁ KHỨ
-    # =========================
-
-    def find_structures(self,gene):
-
-        window=80
-        structures=[]
-
-        for i in range(len(gene)-window):
-
-            structures.append(gene[i:i+window])
-
-        return structures
-
-
-    # =========================
-    # SO KHỚP GENE
-    # =========================
-
-    def similarity(self,current,past):
+    def similarity(self,a,b):
 
         match=0
-        min_len=min(len(current),len(past))
 
-        for i in range(min_len):
+        for i in range(len(a)):
 
-            if current[-i-1]==past[-i-1]:
+            if a[-i-1]==b[-i-1]:
                 match+=1
 
-        return (match/min_len)*100
+        return match/len(a)
 
 
-    # =========================
-    # PHÂN TÍCH HỆ
-    # =========================
+    # ======================
+    # TÌM QUÁ KHỨ
+    # ======================
 
-    def analyze(self,seq,name):
+    def search_history(self,gene):
+
+        vision=80
+
+        current=gene[-vision:]
+
+        matches=[]
+
+        for i in range(len(gene)-vision-100):
+
+            past=gene[i:i+vision]
+
+            sim=self.similarity(current,past)
+
+            if sim>0.75:
+
+                matches.append(i)
+
+        return matches
+
+
+    # ======================
+    # DỰ BÁO 100 VÁN
+    # ======================
+
+    def forecast(self,seq):
 
         streaks=self.get_streaks(seq)
 
         gene=self.encode_gene(streaks)
 
-        E=self.calculate_E(streaks)
-
-        s2,s3,s4=self.streak_distribution(streaks)
-
-        phase=self.detect_phase(E)
-
         vision=80
-        current=gene[-vision:]
 
-        structures=self.find_structures(gene)
+        current_streaks=streaks[-vision:]
 
-        max_sim=0
+        E_now=self.calculate_E(current_streaks)
 
-        for p in structures:
+        history=self.search_history(gene)
 
-            sim=self.similarity(current,p)
+        long_count=0
+        short_count=0
 
-            if sim>max_sim:
-                max_sim=sim
+        for h in history:
+
+            future=seq[h:h+100]
+
+            fs=self.get_streaks(future)
+
+            E_future=self.calculate_E(fs)
+
+            if E_future<2:
+                long_count+=1
+            else:
+                short_count+=1
 
 
-        if E>2:
-            decision="🎯 BẺ CẦU"
-        elif E<2:
+        total=max(1,long_count+short_count)
+
+        long_rate=long_count/total
+        short_rate=short_count/total
+
+
+        if long_rate>0.6:
             decision="🎯 ĐU CẦU"
+        elif short_rate>0.6:
+            decision="🎯 BẺ CẦU"
         else:
             decision="🛡️ CHỜ"
 
 
         return {
 
-            "name":name,
-            "E":round(E,2),
-            "phase":phase,
+            "E_now":round(E_now,2),
+            "matches":len(history),
+            "long_rate":round(long_rate*100,1),
+            "short_rate":round(short_rate*100,1),
             "decision":decision,
-            "sim":round(max_sim,1),
-            "gene":" ".join(gene[-12:]),
-            "s2":s2,
-            "s3":s3,
-            "s4":s4
+            "gene":" ".join(gene[-20:])
         }
 
 
+# ======================
+# UI
+# ======================
 
-# =========================
-# GIAO DIỆN
-# =========================
+st.title("🧠 V31 GENE FORECAST AI")
 
-st.title("🧠 V30 STRUCTURE AI")
+raw_input=st.text_area("Dữ liệu 1 2 3 4")
 
-st.markdown("---")
-
-raw_input=st.text_area(
-"Dán dữ liệu (1 2 3 4)",
-height=150,
-placeholder="123412341234..."
-)
-
-if st.button("🔍 PHÂN TÍCH"):
+if st.button("Phân tích"):
 
     data=[int(x) for x in raw_input if x in "1234"]
 
-    if len(data)<60:
-        st.warning("⚠️ Cần ít nhất 60 ván")
+    bot=UltimateBotV31(data)
 
-    else:
+    r1=bot.forecast(bot.cl_seq)
+    r2=bot.forecast(bot.tn_seq)
 
-        bot=UltimateBotV30(data)
+    st.subheader("CHẴN / LẺ")
 
-        results=[
+    st.metric("E hiện tại",r1["E_now"])
+    st.metric("Match quá khứ",r1["matches"])
 
-            bot.analyze(bot.cl_seq,"HỆ CHẴN / LẺ"),
-            bot.analyze(bot.tn_seq,"HỆ TO / NHỎ")
+    st.write("Gene gần:",r1["gene"])
 
-        ]
+    st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
+    st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
 
-        for r in results:
+    st.success(r1["decision"])
 
-            st.subheader(r["name"])
 
-            col1,col2,col3=st.columns(3)
+    st.subheader("TO / NHỎ")
 
-            col1.metric("E",r["E"])
-            col2.metric("Khớp gene",str(r["sim"])+"%")
-            col3.metric("Streak4+",r["s4"])
+    st.metric("E hiện tại",r2["E_now"])
+    st.metric("Match quá khứ",r2["matches"])
 
-            st.write("Gene gần:",r["gene"])
+    st.write("Gene gần:",r2["gene"])
 
-            st.info(r["phase"])
+    st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
+    st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
 
-            st.success(r["decision"])
-
-            st.markdown("---")
+    st.success(r2["decision"])
