@@ -1,8 +1,8 @@
 import streamlit as st
 
-st.set_page_config(page_title="V31 GENE AI", layout="centered")
+st.set_page_config(page_title="V32 LONG VISION GENE AI", layout="centered")
 
-class UltimateBotV31:
+class UltimateBotV32:
 
     def __init__(self,data):
 
@@ -70,14 +70,24 @@ class UltimateBotV31:
 
 
     # ======================
-    # SIMILARITY
+    # WEIGHTED SIMILARITY
     # ======================
 
     def similarity(self,a,b):
 
-        match=sum(1 for x,y in zip(a,b) if x==y)
+        score=0
+        total=0
 
-        return match/len(a)
+        for i in range(len(a)):
+
+            weight=(i+1)   # gene gần hiện tại quan trọng hơn
+
+            if a[i]==b[i]:
+                score+=weight
+
+            total+=weight
+
+        return score/total
 
 
     # ======================
@@ -88,19 +98,21 @@ class UltimateBotV31:
 
         current=gene[-vision:]
 
-        matches=[]
+        sims=[]
 
-        for i in range(len(gene)-vision-5):
+        for i in range(len(gene)-vision-100):
 
             past=gene[i:i+vision]
 
             sim=self.similarity(current,past)
 
-            if sim>0.6:
+            sims.append((sim,i))
 
-                matches.append(i)
+        sims.sort(reverse=True)
 
-        return matches
+        top=sims[:40]   # lấy 40 match tốt nhất
+
+        return [x[1] for x in top]
 
 
     # ======================
@@ -109,13 +121,13 @@ class UltimateBotV31:
 
     def forecast(self,seq):
 
-        vision=40
+        vision=80
 
         streaks=self.get_streaks(seq)
 
         gene=self.encode_gene(streaks)
 
-        if len(gene)<vision+20:
+        if len(gene)<vision+200:
             return None
 
 
@@ -136,7 +148,7 @@ class UltimateBotV31:
 
             future=seq[start:start+100]
 
-            if len(future)<30:
+            if len(future)<50:
                 continue
 
             fs=self.get_streaks(future)
@@ -165,12 +177,12 @@ class UltimateBotV31:
             short_rate=short_count/total
 
 
-        if long_rate>0.6:
-            decision="🎯 ĐU CẦU"
-        elif short_rate>0.6:
-            decision="🎯 BẺ CẦU"
+        if long_rate>0.65:
+            decision="🎯 CẦU DÀI 100 VÁN"
+        elif short_rate>0.65:
+            decision="🎯 CẦU NGẮN"
         else:
-            decision="🛡️ CHỜ"
+            decision="🛡️ KHÔNG RÕ"
 
 
         return {
@@ -180,7 +192,7 @@ class UltimateBotV31:
             "long_rate": round(long_rate*100,1),
             "short_rate": round(short_rate*100,1),
             "decision": decision,
-            "gene":" ".join(gene[-20:])
+            "gene":" ".join(gene[-30:])
         }
 
 
@@ -188,19 +200,19 @@ class UltimateBotV31:
 # UI
 # ======================
 
-st.title("🧠 V31 GENE FORECAST AI")
+st.title("🧠 V32 LONG VISION GENE AI")
 
-raw_input=st.text_area("Dữ liệu 1 2 3 4")
+raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 
 if st.button("Phân tích"):
 
     data=[int(x) for x in raw_input if x in "1234"]
 
-    if len(data)<200:
-        st.warning("Cần ít nhất 200 dữ liệu")
+    if len(data)<300:
+        st.warning("Cần ít nhất 300 dữ liệu")
         st.stop()
 
-    bot=UltimateBotV31(data)
+    bot=UltimateBotV32(data)
 
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
