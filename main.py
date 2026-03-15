@@ -1,9 +1,9 @@
 import streamlit as st
 import math
 
-st.set_page_config(page_title="V35 SYSTEM BEHAVIOR AI", layout="centered")
+st.set_page_config(page_title="V36 SYSTEM BEHAVIOR AI", layout="centered")
 
-class UltimateBotV35:
+class UltimateBotV36:
 
     def __init__(self,data):
 
@@ -36,7 +36,7 @@ class UltimateBotV35:
 
 
     # ======================
-    # GENE ENCODE
+    # GENE ENCODE (IMPROVED)
     # ======================
 
     def encode_gene(self,streaks):
@@ -47,8 +47,10 @@ class UltimateBotV35:
 
             if s==1:
                 gene.append("X")
-            elif s<=3:
+            elif s==2:
                 gene.append("S")
+            elif s==3:
+                gene.append("M")
             else:
                 gene.append("L")
 
@@ -78,13 +80,16 @@ class UltimateBotV35:
 
         total=len(gene)
 
-        px=gene.count("X")/total
-        ps=gene.count("S")/total
-        pl=gene.count("L")/total
+        counts=[
+            gene.count("X")/total,
+            gene.count("S")/total,
+            gene.count("M")/total,
+            gene.count("L")/total
+        ]
 
         entropy=0
 
-        for p in [px,ps,pl]:
+        for p in counts:
             if p>0:
                 entropy-=p*math.log2(p)
 
@@ -92,7 +97,7 @@ class UltimateBotV35:
 
 
     # ======================
-    # ENTROPY TIMELINE
+    # ENTROPY TREND
     # ======================
 
     def entropy_trend(self,gene):
@@ -187,9 +192,12 @@ class UltimateBotV35:
 
         for sim,h in history:
 
-            start=sum(streaks[:h+vision])
+            # FIX lệch streak
+            pos=0
+            for i in range(h+vision):
+                pos+=streaks[i]
 
-            future=seq[start:start+100]
+            future=seq[pos:pos+100]
 
             if len(future)<50:
                 continue
@@ -227,6 +235,23 @@ class UltimateBotV35:
 
 
     # ======================
+    # RELIABILITY
+    # ======================
+
+    def reliability(self,avg_sim,matches,entropy):
+
+        sim_factor=min(avg_sim/0.8,1)
+
+        match_factor=min(matches/80,1)
+
+        entropy_factor=max(0,1-(entropy-1.3))
+
+        score=(sim_factor*0.4+match_factor*0.4+entropy_factor*0.2)
+
+        return round(score*100,1)
+
+
+    # ======================
     # FINAL FORECAST
     # ======================
 
@@ -253,6 +278,10 @@ class UltimateBotV35:
         matches=m40+m80+m120
 
         score=s40+s80+s120
+
+        avg_similarity=score/matches if matches>0 else 0
+
+        reliability=self.reliability(avg_similarity,matches,entropy)
 
         long_cases=c40[0]+c80[0]+c120[0]
         short_cases=c40[1]+c80[1]+c120[1]
@@ -284,6 +313,8 @@ class UltimateBotV35:
 
             "matches":matches,
             "score":round(score,2),
+            "avg_similarity":round(avg_similarity,3),
+            "reliability":reliability,
 
             "long_cases":long_cases,
             "short_cases":short_cases,
@@ -298,7 +329,7 @@ class UltimateBotV35:
 # UI
 # ======================
 
-st.title("🧠 V35 SYSTEM BEHAVIOR AI")
+st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 
@@ -311,7 +342,7 @@ if st.button("Phân tích"):
         st.warning("Cần ít nhất 300 dữ liệu")
         st.stop()
 
-    bot=UltimateBotV35(data)
+    bot=UltimateBotV36(data)
 
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
@@ -320,24 +351,22 @@ if st.button("Phân tích"):
     st.subheader("CHẴN / LẺ")
 
     st.metric("E hiện tại",f'{r1["E_now"]} ({r1["E_sample"]} streak)')
-
     st.metric("Entropy",r1["entropy"])
-
     st.metric("Entropy Trend",r1["entropy_trend"])
+    st.metric("Reliability",f'{r1["reliability"]}%')
 
     st.write("Gene gần:",r1["gene"])
 
     st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
-
     st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
 
     st.write("Long cases:",r1["long_cases"])
-
     st.write("Short cases:",r1["short_cases"])
 
     st.write("Gene matches:",r1["matches"])
 
     st.write("Similarity score:",r1["score"])
+    st.write("Average similarity:",r1["avg_similarity"])
 
     st.success(r1["decision"])
 
@@ -345,23 +374,21 @@ if st.button("Phân tích"):
     st.subheader("TO / NHỎ")
 
     st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
-
     st.metric("Entropy",r2["entropy"])
-
     st.metric("Entropy Trend",r2["entropy_trend"])
+    st.metric("Reliability",f'{r2["reliability"]}%')
 
     st.write("Gene gần:",r2["gene"])
 
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
-
     st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
 
     st.write("Long cases:",r2["long_cases"])
-
     st.write("Short cases:",r2["short_cases"])
 
     st.write("Gene matches:",r2["matches"])
 
     st.write("Similarity score:",r2["score"])
+    st.write("Average similarity:",r2["avg_similarity"])
 
     st.success(r2["decision"])
