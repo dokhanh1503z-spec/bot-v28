@@ -1,9 +1,9 @@
 import streamlit as st
 import math
 
-st.set_page_config(page_title="V34 SYSTEM BEHAVIOR AI", layout="centered")
+st.set_page_config(page_title="SYSTEM BEHAVIOR AI V35", layout="centered")
 
-class UltimateBotV34:
+class UltimateBotV35:
 
     def __init__(self,data):
 
@@ -20,7 +20,10 @@ class UltimateBotV34:
     def get_streaks(self,seq):
 
         streaks=[]
+        positions=[]
+
         count=1
+        pos=0
 
         for i in range(1,len(seq)):
 
@@ -28,15 +31,18 @@ class UltimateBotV34:
                 count+=1
             else:
                 streaks.append(count)
+                positions.append(pos)
+                pos+=count
                 count=1
 
         streaks.append(count)
+        positions.append(pos)
 
-        return streaks
+        return streaks,positions
 
 
     # ======================
-    # GENE ENCODE
+    # GENE ENCODE (4 LEVEL)
     # ======================
 
     def encode_gene(self,streaks):
@@ -49,6 +55,8 @@ class UltimateBotV34:
                 gene.append("X")
             elif s<=3:
                 gene.append("S")
+            elif s<=6:
+                gene.append("M")
             else:
                 gene.append("L")
 
@@ -78,13 +86,11 @@ class UltimateBotV34:
 
         total=len(gene)
 
-        px=gene.count("X")/total
-        ps=gene.count("S")/total
-        pl=gene.count("L")/total
+        counts=[gene.count(x)/total for x in ["X","S","M","L"]]
 
         entropy=0
 
-        for p in [px,ps,pl]:
+        for p in counts:
             if p>0:
                 entropy-=p*math.log2(p)
 
@@ -92,7 +98,7 @@ class UltimateBotV34:
 
 
     # ======================
-    # ENTROPY TIMELINE
+    # ENTROPY TREND
     # ======================
 
     def entropy_trend(self,gene):
@@ -104,17 +110,12 @@ class UltimateBotV34:
         for w in windows:
 
             if len(gene)>w:
-
-                segment=gene[-w:]
-
-                values.append(self.gene_entropy(segment))
+                values.append(self.gene_entropy(gene[-w:]))
 
         if len(values)<2:
             return 0
 
-        trend=values[0]-values[-1]
-
-        return trend
+        return values[0]-values[-1]
 
 
     # ======================
@@ -158,7 +159,7 @@ class UltimateBotV34:
 
         sims.sort(reverse=True)
 
-        filtered=[x for x in sims if x[0]>0.55]
+        filtered=[x for x in sims if x[0]>0.6]
 
         top=filtered[:50]
 
@@ -171,7 +172,7 @@ class UltimateBotV34:
 
     def run_forecast(self,seq,vision):
 
-        streaks=self.get_streaks(seq)
+        streaks,positions=self.get_streaks(seq)
 
         gene=self.encode_gene(streaks)
 
@@ -182,14 +183,17 @@ class UltimateBotV34:
 
         for h in history:
 
-            start=sum(streaks[:h+vision])
+            if h+vision>=len(positions):
+                continue
+
+            start=positions[h+vision]
 
             future=seq[start:start+100]
 
             if len(future)<50:
                 continue
 
-            fs=self.get_streaks(future)
+            fs,_=self.get_streaks(future)
 
             E_future=self.calculate_E(fs)
 
@@ -204,34 +208,9 @@ class UltimateBotV34:
         total=long_count+short_count
 
         if total==0:
-            return 0.5
+            return 0.5,0,0,0
 
-        return long_count/total
-
-
-    # ======================
-    # CYCLE DETECTOR
-    # ======================
-
-    def cycle_hint(self,seq):
-
-        streaks=self.get_streaks(seq)
-
-        indexes=[]
-
-        for i in range(len(streaks)):
-
-            if streaks[i]>=6:
-                indexes.append(i)
-
-        if len(indexes)<3:
-            return 0
-
-        gaps=[indexes[i+1]-indexes[i] for i in range(len(indexes)-1)]
-
-        avg_gap=sum(gaps)/len(gaps)
-
-        return avg_gap
+        return long_count/total,long_count,short_count,total
 
 
     # ======================
@@ -240,7 +219,7 @@ class UltimateBotV34:
 
     def forecast(self,seq):
 
-        streaks=self.get_streaks(seq)
+        streaks,positions=self.get_streaks(seq)
 
         gene=self.encode_gene(streaks)
 
@@ -248,20 +227,26 @@ class UltimateBotV34:
 
         entropy_move=self.entropy_trend(gene)
 
-        r40=self.run_forecast(seq,40)
-        r80=self.run_forecast(seq,80)
-        r120=self.run_forecast(seq,120)
+        r40,l40,s40,t40=self.run_forecast(seq,40)
+        r80,l80,s80,t80=self.run_forecast(seq,80)
+        r120,l120,s120,t120=self.run_forecast(seq,120)
 
-        votes=[r40,r80,r120]
-
-        long_rate=sum(votes)/len(votes)
+        long_rate=(r40+r80+r120)/3
         short_rate=1-long_rate
+
+        total_match=t40+t80+t120
+        long_match=l40+l80+l120
+        short_match=s40+s80+s120
 
         current_streaks=streaks[-120:]
 
         E_now=self.calculate_E(current_streaks)
 
-        cycle=self.cycle_hint(seq)
+        approx_rounds=sum(current_streaks)
+
+        confidence=0
+        if total_match>0:
+            confidence=min(100,(long_match+short_match)/150*100)
 
         if entropy<1.2 and entropy_move>0.05 and long_rate>0.6:
             decision="🔥 SIÊU CẦU DÀI"
@@ -277,12 +262,21 @@ class UltimateBotV34:
         return {
 
             "E_now": round(E_now,2) if E_now else 0,
+            "E_rounds":approx_rounds,
             "entropy": round(entropy,3),
             "entropy_trend": round(entropy_move,3),
-            "cycle_gap": round(cycle,1),
+
             "long_rate": round(long_rate*100,1),
             "short_rate": round(short_rate*100,1),
+
+            "long_match":long_match,
+            "short_match":short_match,
+            "total_match":total_match,
+
+            "confidence":round(confidence,1),
+
             "decision": decision,
+
             "gene":" ".join(gene[-40:])
         }
 
@@ -291,7 +285,7 @@ class UltimateBotV34:
 # UI
 # ======================
 
-st.title("🧠 V34 SYSTEM BEHAVIOR AI")
+st.title("🧠 SYSTEM BEHAVIOR AI V35")
 
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 
@@ -303,34 +297,47 @@ if st.button("Phân tích"):
         st.warning("Cần ít nhất 300 dữ liệu")
         st.stop()
 
-    bot=UltimateBotV34(data)
+    bot=UltimateBotV35(data)
 
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
 
+
     st.subheader("CHẴN / LẺ")
 
-    st.metric("E hiện tại",r1["E_now"])
+    st.metric("E hiện tại",f'{r1["E_now"]}  ({r1["E_rounds"]} ván)')
+
     st.metric("Entropy",r1["entropy"])
     st.metric("Entropy Trend",r1["entropy_trend"])
 
     st.write("Gene gần:",r1["gene"])
 
-    st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
-    st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
+    st.write(f'Tỷ lệ cầu dài: {r1["long_rate"]}%')
+    st.write(f'Tỷ lệ cầu ngắn: {r1["short_rate"]}%')
+
+    st.write(f'Pattern match: {r1["total_match"]} ván')
+    st.write(f'Long: {r1["long_match"]}  |  Short: {r1["short_match"]}')
+
+    st.write(f'Confidence: {r1["confidence"]}%')
 
     st.success(r1["decision"])
 
 
     st.subheader("TO / NHỎ")
 
-    st.metric("E hiện tại",r2["E_now"])
+    st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_rounds"]} ván)')
+
     st.metric("Entropy",r2["entropy"])
     st.metric("Entropy Trend",r2["entropy_trend"])
 
     st.write("Gene gần:",r2["gene"])
 
-    st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
-    st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
+    st.write(f'Tỷ lệ cầu dài: {r2["long_rate"]}%')
+    st.write(f'Tỷ lệ cầu ngắn: {r2["short_rate"]}%')
+
+    st.write(f'Pattern match: {r2["total_match"]} ván')
+    st.write(f'Long: {r2["long_match"]}  |  Short: {r2["short_match"]}')
+
+    st.write(f'Confidence: {r2["confidence"]}%')
 
     st.success(r2["decision"])
