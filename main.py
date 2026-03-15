@@ -36,7 +36,7 @@ class UltimateBotV36:
 
 
     # ======================
-    # GENE ENCODE (IMPROVED)
+    # GENE ENCODE
     # ======================
 
     def encode_gene(self,streaks):
@@ -149,6 +149,9 @@ class UltimateBotV36:
 
     def search_history(self,gene,vision):
 
+        if len(gene)<vision+10:
+            return []
+
         current=gene[-vision:]
 
         sims=[]
@@ -163,7 +166,8 @@ class UltimateBotV36:
 
         sims.sort(reverse=True)
 
-        filtered=[x for x in sims if x[0]>0.55]
+        # match rộng hơn để tăng sample
+        filtered=[x for x in sims if x[0]>0.48]
 
         top=filtered[:50]
 
@@ -192,7 +196,6 @@ class UltimateBotV36:
 
         for sim,h in history:
 
-            # FIX lệch streak
             pos=0
             for i in range(h+vision):
                 pos+=streaks[i]
@@ -224,8 +227,9 @@ class UltimateBotV36:
 
         total_score=long_score+short_score
 
+        # FIX CRASH
         if total_score==0:
-            return 0.5,0,0,0
+            return 0.5,0,0,(0,0)
 
         long_rate=long_score/total_score
 
