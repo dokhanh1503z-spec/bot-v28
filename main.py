@@ -36,7 +36,7 @@ class UltimateBotV36:
 
 
     # ======================
-    # GENE ENCODE
+    # GENE ENCODE (NEW)
     # ======================
 
     def encode_gene(self,streaks):
@@ -51,10 +51,30 @@ class UltimateBotV36:
                 gene.append("S")
             elif s==3:
                 gene.append("M")
-            else:
+            elif s<=5:
                 gene.append("L")
+            else:
+                gene.append("XL")
 
         return gene
+
+
+    # ======================
+    # GENE GROUP CHECK
+    # ======================
+
+    def same_family(self,a,b):
+
+        short={"X","S","M"}
+        long={"L","XL"}
+
+        if a in short and b in short:
+            return True
+
+        if a in long and b in long:
+            return True
+
+        return False
 
 
     # ======================
@@ -73,23 +93,21 @@ class UltimateBotV36:
 
 
     # ======================
-    # GENE ENTROPY
+    # GENE ENTROPY (UPDATED)
     # ======================
 
     def gene_entropy(self,gene):
 
         total=len(gene)
 
-        counts=[
-            gene.count("X")/total,
-            gene.count("S")/total,
-            gene.count("M")/total,
-            gene.count("L")/total
-        ]
+        types=["X","S","M","L","XL"]
 
         entropy=0
 
-        for p in counts:
+        for t in types:
+
+            p=gene.count(t)/total
+
             if p>0:
                 entropy-=p*math.log2(p)
 
@@ -123,7 +141,7 @@ class UltimateBotV36:
 
 
     # ======================
-    # SIMILARITY
+    # SIMILARITY (UPDATED)
     # ======================
 
     def similarity(self,a,b):
@@ -138,13 +156,16 @@ class UltimateBotV36:
             if a[i]==b[i]:
                 score+=weight
 
+            elif self.same_family(a[i],b[i]):
+                score+=weight*0.5
+
             total+=weight
 
         return score/total
 
 
     # ======================
-    # HISTORY SEARCH
+    # HISTORY SEARCH (TOP 40)
     # ======================
 
     def search_history(self,gene,vision):
@@ -166,10 +187,7 @@ class UltimateBotV36:
 
         sims.sort(reverse=True)
 
-        # Threshold mới theo yêu cầu
-        filtered=[x for x in sims if x[0]>0.53]
-
-        top=filtered[:50]
+        top=sims[:40]
 
         return top
 
@@ -321,7 +339,7 @@ class UltimateBotV36:
 
 
 # ======================
-# UI
+# UI (GIỮ NGUYÊN)
 # ======================
 
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
