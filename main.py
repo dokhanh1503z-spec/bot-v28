@@ -166,8 +166,8 @@ class UltimateBotV36:
 
         sims.sort(reverse=True)
 
-        # THRESHOLD CHẶT HƠN
-        filtered=[x for x in sims if x[0]>0.60]
+        # Threshold mới theo yêu cầu
+        filtered=[x for x in sims if x[0]>0.53]
 
         top=filtered[:50]
 
@@ -215,12 +215,9 @@ class UltimateBotV36:
             total_similarity+=sim
 
             if E_future<2:
-
                 long_score+=sim
                 long_cases+=1
-
             else:
-
                 short_score+=sim
                 short_cases+=1
 
@@ -244,9 +241,7 @@ class UltimateBotV36:
     def reliability(self,avg_sim,matches,entropy):
 
         sim_factor=min(avg_sim/0.8,1)
-
         match_factor=min(matches/80,1)
-
         entropy_factor=max(0,1-(entropy-1.3))
 
         score=(sim_factor*0.4+match_factor*0.4+entropy_factor*0.2)
@@ -265,7 +260,6 @@ class UltimateBotV36:
         gene=self.encode_gene(streaks)
 
         entropy=self.gene_entropy(gene[-60:])
-
         entropy_move=self.entropy_trend(gene)
 
         r40,m40,s40,c40=self.run_forecast(seq,40)
@@ -275,11 +269,9 @@ class UltimateBotV36:
         votes=[r40,r80,r120]
 
         long_rate=sum(votes)/len(votes)
-
         short_rate=1-long_rate
 
         matches=m40+m80+m120
-
         score=s40+s80+s120
 
         avg_similarity=score/matches if matches>0 else 0
@@ -359,7 +351,6 @@ if st.button("Phân tích"):
     st.metric("Reliability",f'{r1["reliability"]}%')
 
     st.write("Gene gần:",r1["gene"])
-
     st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
     st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
 
@@ -367,7 +358,6 @@ if st.button("Phân tích"):
     st.write("Short cases:",r1["short_cases"])
 
     st.write("Gene matches:",r1["matches"])
-
     st.write("Similarity score:",r1["score"])
     st.write("Average similarity:",r1["avg_similarity"])
 
@@ -382,7 +372,6 @@ if st.button("Phân tích"):
     st.metric("Reliability",f'{r2["reliability"]}%')
 
     st.write("Gene gần:",r2["gene"])
-
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
     st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
 
@@ -390,7 +379,6 @@ if st.button("Phân tích"):
     st.write("Short cases:",r2["short_cases"])
 
     st.write("Gene matches:",r2["matches"])
-
     st.write("Similarity score:",r2["score"])
     st.write("Average similarity:",r2["avg_similarity"])
 
