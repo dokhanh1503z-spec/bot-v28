@@ -166,8 +166,8 @@ class UltimateBotV36:
 
         sims.sort(reverse=True)
 
-        # match rộng hơn để tăng sample
-        filtered=[x for x in sims if x[0]>0.48]
+        # THRESHOLD CHẶT HƠN
+        filtered=[x for x in sims if x[0]>0.60]
 
         top=filtered[:50]
 
@@ -227,7 +227,6 @@ class UltimateBotV36:
 
         total_score=long_score+short_score
 
-        # FIX CRASH
         if total_score==0:
             return 0.5,0,0,(0,0)
 
