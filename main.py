@@ -1,13 +1,14 @@
 import streamlit as st
 import math
 
-st.set_page_config(page_title="V37 SYSTEM BEHAVIOR AI", layout="centered")
+st.set_page_config(page_title="V36 SYSTEM BEHAVIOR AI", layout="centered")
 
-class UltimateBotV37:
+class UltimateBotV36:
 
     def __init__(self,data):
 
         self.data=data
+
         self.cl_seq=[x%2==0 for x in data]
         self.tn_seq=[x>2 for x in data]
 
@@ -35,7 +36,7 @@ class UltimateBotV37:
 
 
     # ======================
-    # GENE
+    # GENE ENCODE
     # ======================
 
     def encode_gene(self,streaks):
@@ -72,7 +73,24 @@ class UltimateBotV37:
 
 
     # ======================
-    # ENTROPY
+    # FUTURE STREAK DISTRIBUTION
+    # ======================
+
+    def streak_distribution(self,streaks):
+
+        total=len(streaks)
+
+        if total==0:
+            return 0,0
+
+        s2=sum(1 for s in streaks if s==2)
+        s4=sum(1 for s in streaks if s>=4)
+
+        return s2/total,s4/total
+
+
+    # ======================
+    # GENE ENTROPY
     # ======================
 
     def gene_entropy(self,gene):
@@ -93,6 +111,32 @@ class UltimateBotV37:
                 entropy-=p*math.log2(p)
 
         return entropy
+
+
+    # ======================
+    # ENTROPY TREND
+    # ======================
+
+    def entropy_trend(self,gene):
+
+        windows=[30,40,50,60]
+
+        values=[]
+
+        for w in windows:
+
+            if len(gene)>w:
+
+                segment=gene[-w:]
+
+                values.append(self.gene_entropy(segment))
+
+        if len(values)<2:
+            return 0
+
+        trend=values[0]-values[-1]
+
+        return trend
 
 
     # ======================
@@ -122,9 +166,6 @@ class UltimateBotV37:
 
     def search_history(self,gene,vision):
 
-        if len(gene)<=vision:
-            return []
-
         current=gene[-vision:]
 
         sims=[]
@@ -141,25 +182,9 @@ class UltimateBotV37:
 
         filtered=[x for x in sims if x[0]>0.55]
 
-        return filtered[:50]
+        top=filtered[:50]
 
-
-    # ======================
-    # STREAK DISTRIBUTION
-    # ======================
-
-    def streak_distribution(self,streaks):
-
-        total=len(streaks)
-
-        if total==0:
-            return 0,0,0
-
-        s2=sum(1 for s in streaks if s==2)
-        s3=sum(1 for s in streaks if s==3)
-        s4=sum(1 for s in streaks if s>=4)
-
-        return s2/total,s3/total,s4/total
+        return top
 
 
     # ======================
@@ -169,6 +194,7 @@ class UltimateBotV37:
     def run_forecast(self,seq,vision):
 
         streaks=self.get_streaks(seq)
+
         gene=self.encode_gene(streaks)
 
         history=self.search_history(gene,vision)
@@ -182,13 +208,14 @@ class UltimateBotV37:
         total_similarity=0
 
         s2_total=0
-        s3_total=0
         s4_total=0
         samples=0
 
         for sim,h in history:
 
-            pos=sum(streaks[:h+vision])
+            pos=0
+            for i in range(h+vision):
+                pos+=streaks[i]
 
             future=seq[pos:pos+100]
 
@@ -197,10 +224,9 @@ class UltimateBotV37:
 
             fs=self.get_streaks(future)
 
-            p2,p3,p4=self.streak_distribution(fs)
+            p2,p4=self.streak_distribution(fs)
 
             s2_total+=p2
-            s3_total+=p3
             s4_total+=p4
             samples+=1
 
@@ -225,14 +251,13 @@ class UltimateBotV37:
         total_score=long_score+short_score
 
         if total_score==0:
-
-            return 0.5,0,0,(0,0),(0,0,0,0)
+            return 0.5,0,0,(0,0),(0,0,0)
 
         long_rate=long_score/total_score
 
         matches=long_cases+short_cases
 
-        return long_rate,matches,total_similarity,(long_cases,short_cases),(s2_total,s3_total,s4_total,samples)
+        return long_rate,matches,total_similarity,(long_cases,short_cases),(s2_total,s4_total,samples)
 
 
     # ======================
@@ -259,18 +284,25 @@ class UltimateBotV37:
     def forecast(self,seq):
 
         streaks=self.get_streaks(seq)
+
         gene=self.encode_gene(streaks)
 
         entropy=self.gene_entropy(gene[-60:])
+
+        entropy_move=self.entropy_trend(gene)
 
         r40,m40,s40,c40,d40=self.run_forecast(seq,40)
         r80,m80,s80,c80,d80=self.run_forecast(seq,80)
         r120,m120,s120,c120,d120=self.run_forecast(seq,120)
 
-        long_rate=(r40+r80+r120)/3
+        votes=[r40,r80,r120]
+
+        long_rate=sum(votes)/len(votes)
+
         short_rate=1-long_rate
 
         matches=m40+m80+m120
+
         score=s40+s80+s120
 
         avg_similarity=score/matches if matches>0 else 0
@@ -280,22 +312,23 @@ class UltimateBotV37:
         long_cases=c40[0]+c80[0]+c120[0]
         short_cases=c40[1]+c80[1]+c120[1]
 
-        samples=d40[3]+d80[3]+d120[3]
+        samples=d40[2]+d80[2]+d120[2]
 
         if samples>0:
 
             future_s2=(d40[0]+d80[0]+d120[0])/samples
-            future_s3=(d40[1]+d80[1]+d120[1])/samples
-            future_s4=(d40[2]+d80[2]+d120[2])/samples
+            future_s4=(d40[1]+d80[1]+d120[1])/samples
 
         else:
 
-            future_s2=future_s3=future_s4=0
+            future_s2=0
+            future_s4=0
 
+        current_streaks=streaks[-120:]
 
-        E_now,E_sample=self.calculate_E(streaks[-120:])
+        E_now,E_sample=self.calculate_E(current_streaks)
 
-        if entropy<1.2 and long_rate>0.6:
+        if entropy<1.2 and entropy_move>0.05 and long_rate>0.6:
             decision="🔥 SIÊU CẦU DÀI"
         elif long_rate>0.65:
             decision="🎯 CẦU DÀI"
@@ -309,19 +342,23 @@ class UltimateBotV37:
         return {
 
             "E_now":round(E_now,2) if E_now else 0,
+            "E_sample":E_sample,
             "entropy":round(entropy,3),
+            "entropy_trend":round(entropy_move,3),
 
             "long_rate":round(long_rate*100,1),
             "short_rate":round(short_rate*100,1),
 
             "future_s2":round(future_s2*100,1),
-            "future_s3":round(future_s3*100,1),
             "future_s4":round(future_s4*100,1),
 
+            "matches":matches,
+            "score":round(score,2),
+            "avg_similarity":round(avg_similarity,3),
             "reliability":reliability,
 
-            "matches":matches,
-            "avg_similarity":round(avg_similarity,3),
+            "long_cases":long_cases,
+            "short_cases":short_cases,
 
             "decision":decision,
 
@@ -329,9 +366,11 @@ class UltimateBotV37:
         }
 
 
+# ======================
 # UI
+# ======================
 
-st.title("🧠 V37 SYSTEM BEHAVIOR AI")
+st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 
@@ -344,15 +383,59 @@ if st.button("Phân tích"):
         st.warning("Cần ít nhất 300 dữ liệu")
         st.stop()
 
-    bot=UltimateBotV37(data)
+    bot=UltimateBotV36(data)
 
     r1=bot.forecast(bot.cl_seq)
+    r2=bot.forecast(bot.tn_seq)
 
+
+    st.subheader("CHẴN / LẺ")
+
+    st.metric("E hiện tại",f'{r1["E_now"]} ({r1["E_sample"]} streak)')
     st.metric("Entropy",r1["entropy"])
+    st.metric("Entropy Trend",r1["entropy_trend"])
     st.metric("Reliability",f'{r1["reliability"]}%')
 
-    st.write("Future streak 2:",r1["future_s2"],"%")
-    st.write("Future streak 3:",r1["future_s3"],"%")
-    st.write("Future streak 4+:",r1["future_s4"],"%")
+    st.write("Gene gần:",r1["gene"])
+
+    st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
+    st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
+
+    st.write("Dự đoán streak 2:",r1["future_s2"],"%")
+    st.write("Dự đoán streak 4+:",r1["future_s4"],"%")
+
+    st.write("Long cases:",r1["long_cases"])
+    st.write("Short cases:",r1["short_cases"])
+
+    st.write("Gene matches:",r1["matches"])
+
+    st.write("Similarity score:",r1["score"])
+    st.write("Average similarity:",r1["avg_similarity"])
 
     st.success(r1["decision"])
+
+
+    st.subheader("TO / NHỎ")
+
+    st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
+    st.metric("Entropy",r2["entropy"])
+    st.metric("Entropy Trend",r2["entropy_trend"])
+    st.metric("Reliability",f'{r2["reliability"]}%')
+
+    st.write("Gene gần:",r2["gene"])
+
+    st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
+    st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
+
+    st.write("Dự đoán streak 2:",r2["future_s2"],"%")
+    st.write("Dự đoán streak 4+:",r2["future_s4"],"%")
+
+    st.write("Long cases:",r2["long_cases"])
+    st.write("Short cases:",r2["short_cases"])
+
+    st.write("Gene matches:",r2["matches"])
+
+    st.write("Similarity score:",r2["score"])
+    st.write("Average similarity:",r2["avg_similarity"])
+
+    st.success(r2["decision"])
