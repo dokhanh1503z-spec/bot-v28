@@ -1,5 +1,6 @@
 import streamlit as st
 import math
+import pandas as pd
 
 st.set_page_config(page_title="V36 SYSTEM BEHAVIOR AI", layout="centered")
 
@@ -62,36 +63,31 @@ class UltimateBotV36:
         return s2/s4,len(streaks)
 
     # ======================
-    # E VARIATION
+    # E VARIATION SERIES (NEW)
     # ======================
-    def E_variation(self,seq):
+    def E_variation_series(self,seq):
 
         window=500
+
         if len(seq)<window:
             return None
 
         sub=seq[-window:]
+
         streaks=self.get_streaks(sub)
 
         values=[]
 
         for i in range(20,len(streaks)):
+
             part=streaks[:i]
+
             e,_=self.calculate_E(part)
 
             if e is not None:
                 values.append(e)
 
-        if len(values)==0:
-            return None
-
-        avg=sum(values)/len(values)
-
-        variance=sum((x-avg)**2 for x in values)/len(values)
-
-        std=math.sqrt(variance)
-
-        return round(avg,2),round(std,2),round(min(values),2),round(max(values),2)
+        return values
 
     # ======================
     # GENE ENTROPY
@@ -149,11 +145,9 @@ class UltimateBotV36:
             weight=(i+1)**1.5
 
             if a[i]==b[i]:
-
                 score+=weight
 
             elif self.same_family(a[i],b[i]):
-
                 score+=weight*0.5
 
             total+=weight
@@ -224,16 +218,12 @@ class UltimateBotV36:
                 continue
 
             total_similarity+=sim
-
             weighted_E+=sim*E_future
 
             if E_future<2:
-
                 long_score+=sim
                 long_cases+=1
-
             else:
-
                 short_score+=sim
                 short_cases+=1
 
@@ -256,9 +246,7 @@ class UltimateBotV36:
     def reliability(self,avg_sim,matches,entropy):
 
         sim_factor=min(avg_sim/0.8,1)
-
         match_factor=min(matches/80,1)
-
         entropy_factor=max(0,1-(entropy-1.3))
 
         score=(sim_factor*0.4+match_factor*0.4+entropy_factor*0.2)
@@ -275,7 +263,6 @@ class UltimateBotV36:
         gene=self.encode_gene(streaks)
 
         entropy=self.gene_entropy(gene[-60:])
-
         entropy_move=self.entropy_trend(gene)
 
         r40,m40,s40,c40,e40=self.run_forecast(seq,40)
@@ -285,11 +272,9 @@ class UltimateBotV36:
         votes=[r40,r80,r120]
 
         long_rate=sum(votes)/len(votes)
-
         short_rate=1-long_rate
 
         matches=m40+m80+m120
-
         score=s40+s80+s120
 
         avg_similarity=score/matches if matches>0 else 0
@@ -307,20 +292,16 @@ class UltimateBotV36:
 
         if entropy<1.2 and entropy_move>0.05 and long_rate>0.6:
             decision="🔥 SIÊU CẦU DÀI"
-
         elif long_rate>0.65:
             decision="🎯 CẦU DÀI"
-
         elif short_rate>0.65:
             decision="🎯 CẦU NGẮN"
-
         elif entropy>1.45:
             decision="🌪 NHIỄU"
-
         else:
             decision="🛡️ KHÔNG RÕ"
 
-        E_stats=self.E_variation(seq)
+        E_series=self.E_variation_series(seq)
 
         return {
             "E_now":round(E_now,2) if E_now else 0,
@@ -338,7 +319,7 @@ class UltimateBotV36:
             "short_cases":short_cases,
             "decision":decision,
             "gene":" ".join(gene[-40:]),
-            "E_stats":E_stats
+            "E_series":E_series
         }
 
 # ======================
@@ -354,9 +335,7 @@ if st.button("Phân tích"):
     data=[int(x) for x in raw_input if x in "1234"]
 
     if len(data)<300:
-
         st.warning("Cần ít nhất 300 dữ liệu")
-
         st.stop()
 
     bot=UltimateBotV36(data)
@@ -372,8 +351,11 @@ if st.button("Phân tích"):
     st.metric("Entropy Trend",r1["entropy_trend"])
     st.metric("Reliability",f'{r1["reliability"]}%')
 
-    if r1["E_stats"]:
-        st.write("Biến thiên E (500 ván):",r1["E_stats"])
+    if r1["E_series"]:
+        df=pd.DataFrame({"E":r1["E_series"]})
+        df["E=2"]=2
+        st.subheader("Biểu đồ biến thiên E (500 ván)")
+        st.line_chart(df)
 
     st.write("Gene gần:",r1["gene"])
     st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
@@ -383,7 +365,6 @@ if st.button("Phân tích"):
     st.write("Short cases:",r1["short_cases"])
 
     st.write("Gene matches:",r1["matches"])
-
     st.write("Similarity score:",r1["score"])
     st.write("Average similarity:",r1["avg_similarity"])
 
@@ -397,8 +378,11 @@ if st.button("Phân tích"):
     st.metric("Entropy Trend",r2["entropy_trend"])
     st.metric("Reliability",f'{r2["reliability"]}%')
 
-    if r2["E_stats"]:
-        st.write("Biến thiên E (500 ván):",r2["E_stats"])
+    if r2["E_series"]:
+        df=pd.DataFrame({"E":r2["E_series"]})
+        df["E=2"]=2
+        st.subheader("Biểu đồ biến thiên E (500 ván)")
+        st.line_chart(df)
 
     st.write("Gene gần:",r2["gene"])
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
@@ -408,7 +392,6 @@ if st.button("Phân tích"):
     st.write("Short cases:",r2["short_cases"])
 
     st.write("Gene matches:",r2["matches"])
-
     st.write("Similarity score:",r2["score"])
     st.write("Average similarity:",r2["avg_similarity"])
 
