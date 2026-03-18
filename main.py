@@ -54,6 +54,19 @@ class UltimateBotV36:
             return 2
         return sum(history_E)/len(history_E)
 
+    # 🔥 NEW: GLOBAL E
+    def global_E_avg(self,seq):
+        streaks=self.get_streaks(seq)
+        values=[]
+        for i in range(30,len(streaks)):
+            part=streaks[:i]
+            e,_=self.calculate_E(part)
+            if e is not None:
+                values.append(e)
+        if len(values)==0:
+            return 2
+        return sum(values)/len(values)
+
     def E_variation_series(self,seq):
         window=500
         if len(seq)<window:
@@ -184,8 +197,10 @@ class UltimateBotV36:
         gene=self.encode_gene(streaks)
         history=self.search_history(gene,vision)
 
-        # 🔥 FIX DUY NHẤT Ở ĐÂY
         history = history[:20]
+
+        # 🔥 NEW GLOBAL
+        global_avg = self.global_E_avg(seq)
 
         long_score=0
         short_score=0
@@ -212,17 +227,27 @@ class UltimateBotV36:
                 continue
 
             history_E.append(E_future)
+
+            local_th=self.dynamic_threshold(history_E)
+
             total_similarity+=sim
             weighted_E+=sim*E_future
 
-            threshold=self.dynamic_threshold(history_E)
-
-            if E_future < threshold:
-                long_score+=sim
+            # 🔥 CORE UPGRADE HERE
+            if E_future < local_th and E_future < global_avg:
+                long_score+=sim*1.2
                 long_cases+=1
-            else:
-                short_score+=sim
+            elif E_future > local_th and E_future > global_avg:
+                short_score+=sim*1.2
                 short_cases+=1
+            else:
+                # vùng nhiễu giảm trọng số
+                if E_future < 2:
+                    long_score+=sim*0.5
+                    long_cases+=1
+                else:
+                    short_score+=sim*0.5
+                    short_cases+=1
 
         if total_similarity==0:
             return 0.5,0,0,(0,0),0
