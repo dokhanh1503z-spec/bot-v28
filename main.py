@@ -68,7 +68,6 @@ class UltimateBotV36:
                 values.append(e)
         return values
 
-    # ===== E TREND SHAPE =====
     def E_to_direction(self,E):
         dirs=[]
         for i in range(1,len(E)):
@@ -85,7 +84,6 @@ class UltimateBotV36:
                 same+=1
         return same/len(a)
 
-    # 🔥 FIX LOGIC 50 VÁN (CHUẨN)
     def E_trend_analysis(self,seq):
         E_series=self.E_variation_series(seq)
         if not E_series or len(E_series)<150:
@@ -110,7 +108,6 @@ class UltimateBotV36:
             if sim > 0.6:
 
                 pos = sum(streaks[:i+100])
-
                 future_seq = seq[pos:pos+50]
 
                 if len(future_seq) < 30:
@@ -136,7 +133,6 @@ class UltimateBotV36:
         short_rate = short_cases/matches*100
 
         return round(long_rate,1),round(short_rate,1),long_cases,short_cases
-    # ===== END FIX =====
 
     def gene_entropy(self,gene):
         total=len(gene)
@@ -188,6 +184,9 @@ class UltimateBotV36:
         gene=self.encode_gene(streaks)
         history=self.search_history(gene,vision)
 
+        # 🔥 FIX DUY NHẤT Ở ĐÂY
+        history = history[:20]
+
         long_score=0
         short_score=0
         total_similarity=0
@@ -197,8 +196,6 @@ class UltimateBotV36:
         history_E=[]
 
         for sim,h in history:
-            if sim < 0.55:
-                continue
 
             pos=0
             for i in range(h+vision):
@@ -308,7 +305,7 @@ class UltimateBotV36:
             "E_series":E_series
         }
 
-# ===== UI =====
+# ===== UI giữ nguyên =====
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
@@ -316,7 +313,6 @@ raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 if st.button("Phân tích"):
     data=[int(x) for x in raw_input if x in "1234"]
 
-    # 🔥 NEW: bộ đếm data
     st.write("Tổng số data:", len(data))
 
     if len(data)<300:
