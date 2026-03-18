@@ -11,6 +11,9 @@ class UltimateBotV36:
         self.cl_seq=[x%2==0 for x in data]
         self.tn_seq=[x>2 for x in data]
 
+        # 🔥 NEW: lưu accuracy nội bộ
+        self.pred_history=[]
+
     # ======================
     # STREAK
     # ======================
@@ -44,15 +47,9 @@ class UltimateBotV36:
                 gene.append(f"L{s}")
         return gene
 
-    # ======================
-    # SAME FAMILY
-    # ======================
     def same_family(self,a,b):
         return a[0]==b[0]
 
-    # ======================
-    # E RATIO
-    # ======================
     def calculate_E(self,streaks):
         s2=sum(1 for s in streaks if s==2)
         s4=sum(1 for s in streaks if s>=4)
@@ -63,7 +60,15 @@ class UltimateBotV36:
         return s2/s4,len(streaks)
 
     # ======================
-    # E VARIATION SERIES (NEW)
+    # NEW: Dynamic Threshold
+    # ======================
+    def dynamic_threshold(self,history_E):
+        if len(history_E)==0:
+            return 2
+        return sum(history_E)/len(history_E)
+
+    # ======================
+    # E VARIATION SERIES
     # ======================
     def E_variation_series(self,seq):
 
@@ -73,25 +78,18 @@ class UltimateBotV36:
             return None
 
         sub=seq[-window:]
-
         streaks=self.get_streaks(sub)
 
         values=[]
 
         for i in range(20,len(streaks)):
-
             part=streaks[:i]
-
             e,_=self.calculate_E(part)
-
             if e is not None:
                 values.append(e)
 
         return values
 
-    # ======================
-    # GENE ENTROPY
-    # ======================
     def gene_entropy(self,gene):
 
         total=len(gene)
@@ -100,53 +98,37 @@ class UltimateBotV36:
         entropy=0
 
         for t in types:
-
             p=gene.count(t)/total
-
             if p>0:
                 entropy-=p*math.log2(p)
 
         return entropy
 
-    # ======================
-    # ENTROPY TREND
-    # ======================
     def entropy_trend(self,gene):
 
         windows=[30,40,50,60]
-
         values=[]
 
         for w in windows:
-
             if len(gene)>w:
-
                 segment=gene[-w:]
-
                 values.append(self.gene_entropy(segment))
 
         if len(values)<2:
             return 0
 
-        trend=values[0]-values[-1]
+        return values[0]-values[-1]
 
-        return trend
-
-    # ======================
-    # SIMILARITY
-    # ======================
     def similarity(self,a,b):
 
         score=0
         total=0
 
         for i in range(len(a)):
-
             weight=(i+1)**1.5
 
             if a[i]==b[i]:
                 score+=weight
-
             elif self.same_family(a[i],b[i]):
                 score+=weight*0.5
 
@@ -154,37 +136,28 @@ class UltimateBotV36:
 
         return score/total
 
-    # ======================
-    # HISTORY SEARCH
-    # ======================
     def search_history(self,gene,vision):
 
         if len(gene)<vision+10:
             return []
 
         current=gene[-vision:]
-
         sims=[]
 
         for i in range(len(gene)-vision-1):
-
             past=gene[i:i+vision]
-
             sim=self.similarity(current,past)
-
             sims.append((sim,i))
 
         sims.sort(reverse=True)
-
         return sims[:40]
 
     # ======================
-    # FORECAST CORE
+    # FORECAST CORE (UPGRADE)
     # ======================
     def run_forecast(self,seq,vision):
 
         streaks=self.get_streaks(seq)
-
         gene=self.encode_gene(streaks)
 
         history=self.search_history(gene,vision)
@@ -198,10 +171,15 @@ class UltimateBotV36:
         long_cases=0
         short_cases=0
 
+        history_E=[]  # 🔥 NEW
+
         for sim,h in history:
 
-            pos=0
+            # 🔥 FILTER SIMILARITY
+            if sim < 0.55:
+                continue
 
+            pos=0
             for i in range(h+vision):
                 pos+=streaks[i]
 
@@ -211,16 +189,20 @@ class UltimateBotV36:
                 continue
 
             fs=self.get_streaks(future)
-
             E_future,_=self.calculate_E(fs)
 
             if E_future is None:
                 continue
 
+            history_E.append(E_future)
+
             total_similarity+=sim
             weighted_E+=sim*E_future
 
-            if E_future<2:
+            # 🔥 DYNAMIC THRESHOLD
+            threshold=self.dynamic_threshold(history_E)
+
+            if E_future < threshold:
                 long_score+=sim
                 long_cases+=1
             else:
@@ -233,7 +215,6 @@ class UltimateBotV36:
         E_pred=weighted_E/total_similarity
 
         total_score=long_score+short_score
-
         long_rate=long_score/total_score
 
         matches=long_cases+short_cases
@@ -241,12 +222,12 @@ class UltimateBotV36:
         return long_rate,matches,total_similarity,(long_cases,short_cases),E_pred
 
     # ======================
-    # RELIABILITY
+    # RELIABILITY (TWEAK NHẸ)
     # ======================
     def reliability(self,avg_sim,matches,entropy):
 
         sim_factor=min(avg_sim/0.8,1)
-        match_factor=min(matches/80,1)
+        match_factor=min(matches/120,1)  # 🔥 tăng ngưỡng
         entropy_factor=max(0,1-(entropy-1.3))
 
         score=(sim_factor*0.4+match_factor*0.4+entropy_factor*0.2)
@@ -259,7 +240,6 @@ class UltimateBotV36:
     def forecast(self,seq):
 
         streaks=self.get_streaks(seq)
-
         gene=self.encode_gene(streaks)
 
         entropy=self.gene_entropy(gene[-60:])
@@ -285,10 +265,13 @@ class UltimateBotV36:
         short_cases=c40[1]+c80[1]+c120[1]
 
         current_streaks=streaks[-120:]
-
         E_now,E_sample=self.calculate_E(current_streaks)
 
         E_future=(e40+e80+e120)/3
+
+        # 🔥 TRACK (chưa hiện UI)
+        decision_flag = 1 if long_rate > 0.5 else 0
+        self.pred_history.append(decision_flag)
 
         if entropy<1.2 and entropy_move>0.05 and long_rate>0.6:
             decision="🔥 SIÊU CẦU DÀI"
@@ -323,7 +306,7 @@ class UltimateBotV36:
         }
 
 # ======================
-# UI
+# UI (GIỮ NGUYÊN 100%)
 # ======================
 
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
