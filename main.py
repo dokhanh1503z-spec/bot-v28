@@ -85,7 +85,7 @@ class UltimateBotV36:
                 same+=1
         return same/len(a)
 
-    # 🔥🔥🔥 FIX CHÍNH Ở ĐÂY
+    # 🔥 FIX LOGIC 50 VÁN (CHUẨN)
     def E_trend_analysis(self,seq):
         E_series=self.E_variation_series(seq)
         if not E_series or len(E_series)<150:
@@ -98,7 +98,6 @@ class UltimateBotV36:
         short_cases=0
         matches=0
 
-        # FIX: lấy streak 1 lần
         streaks = self.get_streaks(seq)
 
         for i in range(len(E_series)-150):
@@ -110,7 +109,6 @@ class UltimateBotV36:
 
             if sim > 0.6:
 
-                # FIX: map đúng vị trí
                 pos = sum(streaks[:i+100])
 
                 future_seq = seq[pos:pos+50]
@@ -126,7 +124,6 @@ class UltimateBotV36:
 
                 matches+=1
 
-                # FIX: phân loại theo E thật
                 if E_future < 2:
                     long_cases+=1
                 else:
@@ -311,13 +308,16 @@ class UltimateBotV36:
             "E_series":E_series
         }
 
-# ===== UI GIỮ NGUYÊN =====
+# ===== UI =====
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
 
 if st.button("Phân tích"):
     data=[int(x) for x in raw_input if x in "1234"]
+
+    # 🔥 NEW: bộ đếm data
+    st.write("Tổng số data:", len(data))
 
     if len(data)<300:
         st.warning("Cần ít nhất 300 dữ liệu")
@@ -346,6 +346,9 @@ if st.button("Phân tích"):
     st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
     st.write("Long cases:",r1["long_cases"])
     st.write("Short cases:",r1["short_cases"])
+    st.write("Gene matches:",r1["matches"])
+    st.write("Similarity score:",r1["score"])
+    st.write("Average similarity:",r1["avg_similarity"])
 
     st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
     lr, sr, lc, sc = bot.E_trend_analysis(bot.cl_seq)
@@ -374,6 +377,9 @@ if st.button("Phân tích"):
     st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
     st.write("Long cases:",r2["long_cases"])
     st.write("Short cases:",r2["short_cases"])
+    st.write("Gene matches:",r2["matches"])
+    st.write("Similarity score:",r2["score"])
+    st.write("Average similarity:",r2["avg_similarity"])
 
     st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
     lr, sr, lc, sc = bot.E_trend_analysis(bot.tn_seq)
