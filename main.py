@@ -8,7 +8,7 @@ st.set_page_config(page_title="V36 SYSTEM BEHAVIOR AI", layout="centered")
 
 # --- PHẦN THÊM MỚI: CHỈ ĐỂ LẤY DATA ---
 def fetch_sheets_data():
-    url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-pPONvbU7PR7FteVtEBvN6EuudQ2rgbV3sHX-Ngy1PAlF4nvyTBidXOXXF325_TlKKDJwZB7xFgH/pub?output=csv"
+    url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS5-pPONvbU7PR7FteVtEBvN6EuudQ2rgbV3sHX-Ngy1PALF4nvyTBidXOXXE325_TLKKDJwZB7xFgH/pub?output=csv"
     try:
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
