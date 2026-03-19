@@ -1,9 +1,23 @@
 import streamlit as st
 import math
 import pandas as pd
+import requests
+import re
 
 st.set_page_config(page_title="V36 SYSTEM BEHAVIOR AI", layout="centered")
 
+# --- PHẦN THÊM MỚI: CHỈ ĐỂ LẤY DATA ---
+def fetch_sheets_data():
+    url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS-pPONvbU7PR7FteVtEBvN6EuudQ2rgbV3sHX-Ngy1PAlF4nvyTBidXOXXF325_TlKKDJwZB7xFgH/pub?output=csv"
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            return "".join(re.findall(r'[1-4]', response.text))
+    except:
+        return ""
+    return ""
+
+# --- GIỮ NGUYÊN CLASS 100% ---
 class UltimateBotV36:
 
     def __init__(self,data):
@@ -333,7 +347,16 @@ class UltimateBotV36:
 # ===== UI giữ nguyên =====
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
-raw_input=st.text_area("Nhập dữ liệu 1 2 3 4")
+# --- NÚT BẤM THÊM VÀO ĐỂ LẤY DATA ---
+if st.button("☁️ Tải dữ liệu từ Google Sheets"):
+    data_from_sheets = fetch_sheets_data()
+    if data_from_sheets:
+        st.session_state['data_input'] = data_from_sheets
+        st.success("Đã tải xong!")
+
+# Load dữ liệu vào ô text area
+input_val = st.session_state.get('data_input', "")
+raw_input=st.text_area("Nhập dữ liệu 1 2 3 4", value=input_val)
 
 if st.button("Phân tích"):
     data=[int(x) for x in raw_input if x in "1234"]
