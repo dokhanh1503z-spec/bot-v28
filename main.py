@@ -79,7 +79,6 @@ class UltimateBotV36:
             return 2
         return sum(values)/len(values)
 
-    # ✅ CHỈ SỬA DUY NHẤT CHỖ NÀY
     def E_variation_series(self,seq):
         if len(seq) < 30:
             return None
@@ -338,6 +337,14 @@ class UltimateBotV36:
             "E_series":E_series
         }
 
+def gene_to_num(g):
+    if g == "X": return 1
+    if g == "S": return 2
+    if g == "M": return 3
+    if g.startswith("L"):
+        return int(g[1:])
+    return 0
+
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 if st.button("☁️ Tải dữ liệu từ Google Sheets"):
@@ -389,10 +396,12 @@ if "data" in st.session_state:
         else:
             sub_seq = bot.cl_seq
 
-        E_series_new = bot.E_variation_series(sub_seq)
+        streaks = bot.get_streaks(sub_seq)
+        gene = bot.encode_gene(streaks)
+        gene_num = [gene_to_num(g) for g in gene]
 
-        if E_series_new:
-            df=pd.DataFrame({"E":E_series_new})
+        if gene_num:
+            df=pd.DataFrame({"E":gene_num})
             df["E=2"]=2
             df["MA10"]=df["E"].rolling(10).mean()
             df["MA30"]=df["E"].rolling(30).mean()
@@ -412,24 +421,6 @@ if "data" in st.session_state:
             )
 
             st.plotly_chart(fig, use_container_width=True)
-
-    st.write("Gene gần:",r1["gene"])
-    st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
-    st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
-    st.write("Long cases:",r1["long_cases"])
-    st.write("Short cases:",r1["short_cases"])
-    st.write("Gene matches:",r1["matches"])
-    st.write("Similarity score:",r1["score"])
-    st.write("Average similarity:",r1["avg_similarity"])
-
-    st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
-    lr, sr, lc, sc = bot.E_trend_analysis(bot.cl_seq)
-    st.write("E Trend Long:", lr, "%")
-    st.write("E Trend Short:", sr, "%")
-    st.write("E Long cases:", lc)
-    st.write("E Short cases:", sc)
-
-    st.success(r1["decision"])
 
     st.subheader("TO / NHỎ")
     st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
@@ -456,10 +447,12 @@ if "data" in st.session_state:
         else:
             sub_seq = bot.tn_seq
 
-        E_series_new = bot.E_variation_series(sub_seq)
+        streaks = bot.get_streaks(sub_seq)
+        gene = bot.encode_gene(streaks)
+        gene_num = [gene_to_num(g) for g in gene]
 
-        if E_series_new:
-            df=pd.DataFrame({"E":E_series_new})
+        if gene_num:
+            df=pd.DataFrame({"E":gene_num})
             df["E=2"]=2
             df["MA10"]=df["E"].rolling(10).mean()
             df["MA30"]=df["E"].rolling(30).mean()
@@ -479,21 +472,3 @@ if "data" in st.session_state:
             )
 
             st.plotly_chart(fig, use_container_width=True)
-
-    st.write("Gene gần:",r2["gene"])
-    st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
-    st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
-    st.write("Long cases:",r2["long_cases"])
-    st.write("Short cases:",r2["short_cases"])
-    st.write("Gene matches:",r2["matches"])
-    st.write("Similarity score:",r2["score"])
-    st.write("Average similarity:",r2["avg_similarity"])
-
-    st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
-    lr, sr, lc, sc = bot.E_trend_analysis(bot.tn_seq)
-    st.write("E Trend Long:", lr, "%")
-    st.write("E Trend Short:", sr, "%")
-    st.write("E Long cases:", lc)
-    st.write("E Short cases:", sc)
-
-    st.success(r2["decision"])
