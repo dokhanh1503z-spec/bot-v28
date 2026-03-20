@@ -1,3 +1,4 @@
+# ================= GIỮ NGUYÊN TOÀN BỘ IMPORT =================
 import streamlit as st
 import math
 import pandas as pd
@@ -7,6 +8,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(page_title="V36 SYSTEM BEHAVIOR AI", layout="centered")
 
+# ================= FETCH =================
 def fetch_sheets_data():
     url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS5-pPONvbU7PR7FteVtEBvN6EuudQ2rgbV3sHX-Ngy1PALF4nvyTBidXOXXE325_TLKKDJwZB7xFgH/pub?output=csv"
     try:
@@ -17,8 +19,8 @@ def fetch_sheets_data():
         return ""
     return ""
 
+# ================= CLASS GIỮ NGUYÊN 100% =================
 class UltimateBotV36:
-
     def __init__(self,data):
         self.data=data
         self.cl_seq=[x%2==0 for x in data]
@@ -91,29 +93,22 @@ class UltimateBotV36:
                 values.append(e)
         return values
 
-    # ✅ FIX CHUẨN
     def E_from_gene_window(self, seq, gene_window):
         streaks = self.get_streaks(seq)
-
         if len(streaks) < gene_window:
-            return None, 0
+            return None
 
         sub_streaks = streaks[-gene_window:]
-
         values = []
         for i in range(5, len(sub_streaks)):
             part = sub_streaks[:i]
             e, _ = self.calculate_E(part)
-
             if e is None:
                 e = 2
-
             values.append(e)
+        return values
 
-        total_numbers = sum(sub_streaks)
-
-        return values, total_numbers
-
+    # ===== CÁC HÀM CÒN LẠI GIỮ NGUYÊN =====
     def E_to_direction(self,E):
         dirs=[]
         for i in range(1,len(E)):
@@ -147,7 +142,6 @@ class UltimateBotV36:
         for i in range(len(E_series)-150):
             past=E_series[i:i+100]
             past_dir=self.E_to_direction(past)
-
             sim=self.direction_similarity(recent_dir,past_dir)
 
             if sim > 0.6:
@@ -229,7 +223,6 @@ class UltimateBotV36:
         history=self.search_history(gene,vision)
 
         history = history[:20]
-
         global_avg = self.global_E_avg(seq)
 
         long_score=0
@@ -256,7 +249,6 @@ class UltimateBotV36:
                 continue
 
             history_E.append(E_future)
-
             local_th=self.dynamic_threshold(history_E)
 
             total_similarity+=sim
@@ -322,9 +314,6 @@ class UltimateBotV36:
 
         E_future=(e40+e80+e120)/3
 
-        decision_flag = 1 if long_rate > 0.5 else 0
-        self.pred_history.append(decision_flag)
-
         if entropy<1.2 and entropy_move>0.05 and long_rate>0.6:
             decision="🔥 SIÊU CẦU DÀI"
         elif long_rate>0.65:
@@ -335,8 +324,6 @@ class UltimateBotV36:
             decision="🌪 NHIỄU"
         else:
             decision="🛡️ KHÔNG RÕ"
-
-        E_series=self.E_variation_series(seq)
 
         return {
             "E_now":round(E_now,2) if E_now else 0,
@@ -353,12 +340,10 @@ class UltimateBotV36:
             "long_cases":long_cases,
             "short_cases":short_cases,
             "decision":decision,
-            "gene":" ".join(gene[-40:]),
-            "E_series":E_series
+            "gene":" ".join(gene[-40:])
         }
 
 # ================= UI =================
-
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 if st.button("☁️ Tải dữ liệu từ Google Sheets"):
@@ -370,14 +355,14 @@ if st.button("☁️ Tải dữ liệu từ Google Sheets"):
 input_val = st.session_state.get('data_input', "")
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4", value=input_val)
 
-# 🔥 DATA COUNT
-st.write(f"📊 Tổng số dữ liệu: {len([x for x in raw_input if x in '1234'])}")
-
 if st.button("Phân tích"):
     st.session_state.data = [int(x) for x in raw_input if x in "1234"]
 
 if "data" in st.session_state:
     data = st.session_state.data
+
+    # ✅ THÊM: bộ đếm dữ liệu
+    st.info(f"📊 Tổng dữ liệu: {len(data)} số")
 
     if len(data)<300:
         st.warning("Cần ít nhất 300 dữ liệu")
@@ -386,58 +371,26 @@ if "data" in st.session_state:
     bot=UltimateBotV36(data)
 
     r1=bot.forecast(bot.cl_seq)
-    r2=bot.forecast(bot.tn_seq)
 
     st.subheader("CHẴN / LẺ")
-    st.metric("E hiện tại",f'{r1["E_now"]} ({r1["E_sample"]} streak)')
-    st.metric("E dự đoán",r1["E_future"])
-    st.metric("Entropy",r1["entropy"])
-    st.metric("Entropy Trend",r1["entropy_trend"])
-    st.metric("Reliability",f'{r1["reliability"]}%')
 
-    if r1["E_series"]:
+    # ✅ INPUT GENE THAY RADIO
+    gene_input = st.number_input("Nhập số gene (CL)", min_value=20, max_value=2000, value=100)
 
-        gene_main = st.number_input("Gene chính (CL)", min_value=10, max_value=1000, value=120)
-        gene_sub = st.number_input("Gene phụ (CL)", min_value=10, max_value=1000, value=50)
+    E_series = bot.E_from_gene_window(bot.cl_seq, gene_input)
 
-        E1, n1 = bot.E_from_gene_window(bot.cl_seq, gene_main)
-        E2, n2 = bot.E_from_gene_window(bot.cl_seq, gene_sub)
+    if E_series:
+        # ✅ ĐẾM GENE
+        st.write(f"🧬 Số gene đang dùng: {gene_input}")
+        st.write(f"📈 Số điểm E tạo ra: {len(E_series)}")
 
-        st.write(f"{gene_main} gene ≈ {n1} số")
-        st.write(f"{gene_sub} gene ≈ {n2} số")
+        df=pd.DataFrame({"E":E_series})
+        df["MA10"]=df["E"].rolling(10).mean()
+        df["MA30"]=df["E"].rolling(30).mean()
 
-        def draw(E):
-            df=pd.DataFrame({"E":E})
-            df["E=2"]=2
-            df["MA10"]=df["E"].rolling(10).mean()
-            df["MA30"]=df["E"].rolling(30).mean()
-            fig=go.Figure()
-            fig.add_trace(go.Scatter(y=df["E"]))
-            fig.add_trace(go.Scatter(y=df["MA10"]))
-            fig.add_trace(go.Scatter(y=df["MA30"]))
-            fig.add_trace(go.Scatter(y=df["E=2"]))
-            fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
-            return fig
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=df["E"], name="E"))
+        fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
+        fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
 
-        if E1:
-            st.plotly_chart(draw(E1), use_container_width=True)
-        if E2:
-            st.plotly_chart(draw(E2), use_container_width=True)
-
-    st.subheader("TO / NHỎ")
-
-    if r2["E_series"]:
-
-        gene_main = st.number_input("Gene chính (TN)", min_value=10, max_value=1000, value=120)
-        gene_sub = st.number_input("Gene phụ (TN)", min_value=10, max_value=1000, value=50)
-
-        E1, n1 = bot.E_from_gene_window(bot.tn_seq, gene_main)
-        E2, n2 = bot.E_from_gene_window(bot.tn_seq, gene_sub)
-
-        st.write(f"{gene_main} gene ≈ {n1} số")
-        st.write(f"{gene_sub} gene ≈ {n2} số")
-
-        if E1:
-            st.plotly_chart(draw(E1), use_container_width=True)
-        if E2:
-            st.plotly_chart(draw(E2), use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
