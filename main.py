@@ -3,6 +3,7 @@ import math
 import pandas as pd
 import requests
 import re
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="V36 SYSTEM BEHAVIOR AI", layout="centered")
 
@@ -68,7 +69,6 @@ class UltimateBotV36:
             return 2
         return sum(history_E)/len(history_E)
 
-    # 🔥 NEW: GLOBAL E
     def global_E_avg(self,seq):
         streaks=self.get_streaks(seq)
         values=[]
@@ -213,7 +213,6 @@ class UltimateBotV36:
 
         history = history[:20]
 
-        # 🔥 NEW GLOBAL
         global_avg = self.global_E_avg(seq)
 
         long_score=0
@@ -247,7 +246,6 @@ class UltimateBotV36:
             total_similarity+=sim
             weighted_E+=sim*E_future
 
-            # 🔥 CORE UPGRADE HERE
             if E_future < local_th and E_future < global_avg:
                 long_score+=sim*1.2
                 long_cases+=1
@@ -255,7 +253,6 @@ class UltimateBotV36:
                 short_score+=sim*1.2
                 short_cases+=1
             else:
-                # vùng nhiễu giảm trọng số
                 if E_future < 2:
                     long_score+=sim*0.5
                     long_cases+=1
@@ -347,14 +344,12 @@ class UltimateBotV36:
 # ===== UI giữ nguyên =====
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
-# --- NÚT BẤM THÊM VÀO ĐỂ LẤY DATA ---
 if st.button("☁️ Tải dữ liệu từ Google Sheets"):
     data_from_sheets = fetch_sheets_data()
     if data_from_sheets:
         st.session_state['data_input'] = data_from_sheets
         st.success("Đã tải xong!")
 
-# Load dữ liệu vào ô text area
 input_val = st.session_state.get('data_input', "")
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4", value=input_val)
 
@@ -382,8 +377,29 @@ if st.button("Phân tích"):
     if r1["E_series"]:
         df=pd.DataFrame({"E":r1["E_series"]})
         df["E=2"]=2
-        st.subheader("Biểu đồ biến thiên E (500 ván)")
-        st.line_chart(df)
+        df["MA10"]=df["E"].rolling(10).mean()
+        df["MA30"]=df["E"].rolling(30).mean()
+
+        view = st.radio("Chọn khung (CL)", ["50","100","200","500","1000","ALL"], horizontal=True)
+
+        if view != "ALL":
+            df = df.tail(int(view))
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=df["E"], name="E"))
+        fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
+        fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
+        fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
+
+        fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+        fig.update_layout(
+            title="Biểu đồ E (Zoom kéo thả)",
+            xaxis=dict(rangeslider=dict(visible=True)),
+            hovermode="x unified"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
     st.write("Gene gần:",r1["gene"])
     st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
@@ -413,8 +429,29 @@ if st.button("Phân tích"):
     if r2["E_series"]:
         df=pd.DataFrame({"E":r2["E_series"]})
         df["E=2"]=2
-        st.subheader("Biểu đồ biến thiên E (500 ván)")
-        st.line_chart(df)
+        df["MA10"]=df["E"].rolling(10).mean()
+        df["MA30"]=df["E"].rolling(30).mean()
+
+        view = st.radio("Chọn khung (TN)", ["50","100","200","500","1000","ALL"], horizontal=True)
+
+        if view != "ALL":
+            df = df.tail(int(view))
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=df["E"], name="E"))
+        fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
+        fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
+        fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
+
+        fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+        fig.update_layout(
+            title="Biểu đồ E (Zoom kéo thả)",
+            xaxis=dict(rangeslider=dict(visible=True)),
+            hovermode="x unified"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
     st.write("Gene gần:",r2["gene"])
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
