@@ -18,6 +18,7 @@ def fetch_sheets_data():
     return ""
 
 class UltimateBotV36:
+
     def __init__(self,data):
         self.data=data
         self.cl_seq=[x%2==0 for x in data]
@@ -123,11 +124,14 @@ class UltimateBotV36:
         streaks = self.get_streaks(seq)
 
         for i in range(len(E_series)-150):
+
             past=E_series[i:i+100]
             past_dir=self.E_to_direction(past)
+
             sim=self.direction_similarity(recent_dir,past_dir)
 
             if sim > 0.6:
+
                 pos = sum(streaks[:i+100])
                 future_seq = seq[pos:pos+50]
 
@@ -206,6 +210,7 @@ class UltimateBotV36:
         history=self.search_history(gene,vision)
 
         history = history[:20]
+
         global_avg = self.global_E_avg(seq)
 
         long_score=0
@@ -217,6 +222,7 @@ class UltimateBotV36:
         history_E=[]
 
         for sim,h in history:
+
             pos=0
             for i in range(h+vision):
                 pos+=streaks[i]
@@ -232,6 +238,7 @@ class UltimateBotV36:
                 continue
 
             history_E.append(E_future)
+
             local_th=self.dynamic_threshold(history_E)
 
             total_similarity+=sim
@@ -332,7 +339,6 @@ class UltimateBotV36:
             "E_series":E_series
         }
 
-# ===== UI =====
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 if st.button("☁️ Tải dữ liệu từ Google Sheets"):
@@ -359,6 +365,11 @@ if st.button("Phân tích"):
     r2=bot.forecast(bot.tn_seq)
 
     st.subheader("CHẴN / LẺ")
+    st.metric("E hiện tại",f'{r1["E_now"]} ({r1["E_sample"]} streak)')
+    st.metric("E dự đoán",r1["E_future"])
+    st.metric("Entropy",r1["entropy"])
+    st.metric("Entropy Trend",r1["entropy_trend"])
+    st.metric("Reliability",f'{r1["reliability"]}%')
 
     if r1["E_series"]:
         df=pd.DataFrame({"E":r1["E_series"]})
@@ -367,20 +378,18 @@ if st.button("Phân tích"):
         df["MA30"]=df["E"].rolling(30).mean()
 
         if "view_cl" not in st.session_state:
-            st.session_state.view_cl = "500"
+            st.session_state.view_cl = "50"
 
         view = st.radio(
             "Chọn khung (CL)",
             ["50","100","200","500","1000","ALL"],
             index=["50","100","200","500","1000","ALL"].index(st.session_state.view_cl),
-            key="view_cl_radio",
+            key="view_cl",
             horizontal=True
         )
 
-        st.session_state.view_cl = view
-
-        if st.session_state.view_cl != "ALL":
-            df = df.tail(int(st.session_state.view_cl))
+        if view != "ALL":
+            df = df.tail(int(view))
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(y=df["E"], name="E"))
@@ -388,8 +397,40 @@ if st.button("Phân tích"):
         fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
         fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
 
-        fig.update_layout(xaxis=dict(rangeslider=dict(visible=True)))
+        fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+        fig.update_layout(
+            title="Biểu đồ E (Zoom kéo thả)",
+            xaxis=dict(rangeslider=dict(visible=True)),
+            hovermode="x unified"
+        )
+
         st.plotly_chart(fig, use_container_width=True)
+
+    st.write("Gene gần:",r1["gene"])
+    st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
+    st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
+    st.write("Long cases:",r1["long_cases"])
+    st.write("Short cases:",r1["short_cases"])
+    st.write("Gene matches:",r1["matches"])
+    st.write("Similarity score:",r1["score"])
+    st.write("Average similarity:",r1["avg_similarity"])
+
+    st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
+    lr, sr, lc, sc = bot.E_trend_analysis(bot.cl_seq)
+    st.write("E Trend Long:", lr, "%")
+    st.write("E Trend Short:", sr, "%")
+    st.write("E Long cases:", lc)
+    st.write("E Short cases:", sc)
+
+    st.success(r1["decision"])
+
+    st.subheader("TO / NHỎ")
+    st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
+    st.metric("E dự đoán",r2["E_future"])
+    st.metric("Entropy",r2["entropy"])
+    st.metric("Entropy Trend",r2["entropy_trend"])
+    st.metric("Reliability",f'{r2["reliability"]}%')
 
     if r2["E_series"]:
         df=pd.DataFrame({"E":r2["E_series"]})
@@ -398,20 +439,18 @@ if st.button("Phân tích"):
         df["MA30"]=df["E"].rolling(30).mean()
 
         if "view_tn" not in st.session_state:
-            st.session_state.view_tn = "500"
+            st.session_state.view_tn = "50"
 
         view = st.radio(
             "Chọn khung (TN)",
             ["50","100","200","500","1000","ALL"],
             index=["50","100","200","500","1000","ALL"].index(st.session_state.view_tn),
-            key="view_tn_radio",
+            key="view_tn",
             horizontal=True
         )
 
-        st.session_state.view_tn = view
-
-        if st.session_state.view_tn != "ALL":
-            df = df.tail(int(st.session_state.view_tn))
+        if view != "ALL":
+            df = df.tail(int(view))
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(y=df["E"], name="E"))
@@ -419,5 +458,30 @@ if st.button("Phân tích"):
         fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
         fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
 
-        fig.update_layout(xaxis=dict(rangeslider=dict(visible=True)))
+        fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+        fig.update_layout(
+            title="Biểu đồ E (Zoom kéo thả)",
+            xaxis=dict(rangeslider=dict(visible=True)),
+            hovermode="x unified"
+        )
+
         st.plotly_chart(fig, use_container_width=True)
+
+    st.write("Gene gần:",r2["gene"])
+    st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
+    st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
+    st.write("Long cases:",r2["long_cases"])
+    st.write("Short cases:",r2["short_cases"])
+    st.write("Gene matches:",r2["matches"])
+    st.write("Similarity score:",r2["score"])
+    st.write("Average similarity:",r2["avg_similarity"])
+
+    st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
+    lr, sr, lc, sc = bot.E_trend_analysis(bot.tn_seq)
+    st.write("E Trend Long:", lr, "%")
+    st.write("E Trend Short:", sr, "%")
+    st.write("E Long cases:", lc)
+    st.write("E Short cases:", sc)
+
+    st.success(r2["decision"])
