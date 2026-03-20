@@ -79,6 +79,7 @@ class UltimateBotV36:
             return 2
         return sum(values)/len(values)
 
+    # ✅ CHỈ SỬA DUY NHẤT CHỖ NÀY
     def E_variation_series(self,seq):
         if len(seq) < 30:
             return None
@@ -337,32 +338,6 @@ class UltimateBotV36:
             "E_series":E_series
         }
 
-# ====== THÊM HÀM GENE ======
-def build_gene_series(bot, seq, gene_len):
-    streaks = bot.get_streaks(seq)
-    gene = bot.encode_gene(streaks)
-
-    if len(gene) < gene_len:
-        return None, 0
-
-    mapping = {"X":1,"S":2,"M":3}
-    values = []
-    total_numbers = 0
-
-    for g, s in zip(gene[-gene_len:], streaks[-gene_len:]):
-        if g.startswith("L"):
-            v = int(g[1:])
-        else:
-            v = mapping.get(g,1)
-
-        values.append(v)
-        total_numbers += s
-
-    return values, total_numbers
-
-
-# ================= UI =================
-
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 if st.button("☁️ Tải dữ liệu từ Google Sheets"):
@@ -373,9 +348,6 @@ if st.button("☁️ Tải dữ liệu từ Google Sheets"):
 
 input_val = st.session_state.get('data_input', "")
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4", value=input_val)
-
-# bộ đếm data
-st.write("📊 Tổng data:", len(raw_input))
 
 if st.button("Phân tích"):
     st.session_state.data = [int(x) for x in raw_input if x in "1234"]
@@ -392,7 +364,6 @@ if "data" in st.session_state:
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
 
-    # ===== CHẴN LẺ =====
     st.subheader("CHẴN / LẺ")
     st.metric("E hiện tại",f'{r1["E_now"]} ({r1["E_sample"]} streak)')
     st.metric("E dự đoán",r1["E_future"])
@@ -400,20 +371,8 @@ if "data" in st.session_state:
     st.metric("Entropy Trend",r1["entropy_trend"])
     st.metric("Reliability",f'{r1["reliability"]}%')
 
-    gene_input = st.number_input("Gene view CL",10,500,50)
-
-    gene_vals, total_nums = build_gene_series(bot, bot.cl_seq, gene_input)
-
-    if gene_vals:
-        df=pd.DataFrame({"Gene":gene_vals})
-        fig=go.Figure()
-        fig.add_trace(go.Scatter(y=df["Gene"], name="Gene"))
-        st.plotly_chart(fig, use_container_width=True)
-        st.write("Gene:", gene_input)
-        st.write("Tương ứng data:", total_nums)
-
-    # ===== GIỮ NGUYÊN BIỂU ĐỒ E =====
     if r1["E_series"]:
+
         if "view_cl" not in st.session_state:
             st.session_state.view_cl = "50"
 
@@ -472,7 +431,6 @@ if "data" in st.session_state:
 
     st.success(r1["decision"])
 
-    # ===== TO NHỎ GIỮ NGUYÊN =====
     st.subheader("TO / NHỎ")
     st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
     st.metric("E dự đoán",r2["E_future"])
@@ -480,19 +438,8 @@ if "data" in st.session_state:
     st.metric("Entropy Trend",r2["entropy_trend"])
     st.metric("Reliability",f'{r2["reliability"]}%')
 
-    gene_input2 = st.number_input("Gene view TN",10,500,50)
-
-    gene_vals2, total_nums2 = build_gene_series(bot, bot.tn_seq, gene_input2)
-
-    if gene_vals2:
-        df=pd.DataFrame({"Gene":gene_vals2})
-        fig=go.Figure()
-        fig.add_trace(go.Scatter(y=df["Gene"], name="Gene"))
-        st.plotly_chart(fig, use_container_width=True)
-        st.write("Gene:", gene_input2)
-        st.write("Tương ứng data:", total_nums2)
-
     if r2["E_series"]:
+
         if "view_tn" not in st.session_state:
             st.session_state.view_tn = "50"
 
