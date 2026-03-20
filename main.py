@@ -79,6 +79,23 @@ class UltimateBotV36:
             return 2
         return sum(values)/len(values)
 
+    # ✅ SỬA CHỖ NÀY: TÍNH E TRỰC TIẾP TỪ GENE
+    def E_variation_series_from_gene(self, gene_series, window=None):
+        if len(gene_series)<1:
+            return None
+        if window is None or window>len(gene_series):
+            window=len(gene_series)
+        gene_window = gene_series[-window:]
+        values=[]
+        for i in range(1,len(gene_window)+1):
+            part = gene_window[:i]
+            s2 = sum(1 for g in part if g=="S")
+            s4 = sum(1 for g in part if g.startswith("L") and int(g[1:])>=4)
+            if s4==0:
+                continue
+            values.append(s2/s4)
+        return values if values else None
+
     def E_variation_series(self,seq):
         if len(seq) < 30:
             return None
@@ -316,8 +333,8 @@ class UltimateBotV36:
         else:
             decision="🛡️ KHÔNG RÕ"
 
-        E_series=self.E_variation_series(seq)
-        gene_series=self.encode_gene(self.get_streaks(seq))
+        # Tạo E_series từ gene trực tiếp
+        E_series_gene = self.E_variation_series_from_gene(gene, window=50)
 
         return {
             "E_now":round(E_now,2) if E_now else 0,
@@ -334,12 +351,12 @@ class UltimateBotV36:
             "long_cases":long_cases,
             "short_cases":short_cases,
             "decision":decision,
-            "gene":" ".join(gene_series[-40:]),
-            "gene_series":gene_series,
-            "E_series":E_series
+            "gene":" ".join(gene[-40:]),
+            "E_series":E_series_gene,
+            "total_data":len(seq),
+            "gene_count_for_chart":len(E_series_gene) if E_series_gene else 0
         }
 
-# ---------------- UI -----------------
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 if st.button("☁️ Tải dữ liệu từ Google Sheets"):
@@ -357,90 +374,44 @@ if st.button("Phân tích"):
 if "data" in st.session_state:
     data = st.session_state.data
 
-    st.write(f"**Số data đã nhập từ Google Sheet:** {len(data)}")
-
     if len(data)<300:
         st.warning("Cần ít nhất 300 dữ liệu")
         st.stop()
 
     bot=UltimateBotV36(data)
 
+    # Nhập số lượng gene để vẽ biểu đồ
+    gene_input = st.number_input("Nhập số lượng gene để vẽ biểu đồ E:", min_value=10, max_value=1000, value=50, step=10)
+
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
 
-    # ---------------- Input số gene muốn vẽ biểu đồ -----------------
-    gene_input = st.number_input("Số gene muốn vẽ biểu đồ", min_value=10, max_value=len(data), value=50, step=10)
-
-    st.write(f"**Số gene dùng để vẽ biểu đồ:** {gene_input}")
-
-    # ---------------- Chẵn Lẻ -----------------
     st.subheader("CHẴN / LẺ")
+    st.metric("Tổng data", r1["total_data"])
+    st.metric("Số gene dùng vẽ E", r1["gene_count_for_chart"])
     st.metric("E hiện tại",f'{r1["E_now"]} ({r1["E_sample"]} streak)')
     st.metric("E dự đoán",r1["E_future"])
     st.metric("Entropy",r1["entropy"])
     st.metric("Entropy Trend",r1["entropy_trend"])
     st.metric("Reliability",f'{r1["reliability"]}%')
 
-    # E Chart
-    E_sub_seq = bot.cl_seq[-gene_input:]
-    E_series_new = bot.E_variation_series(E_sub_seq)
-    if E_series_new:
-        df=pd.DataFrame({"E":E_series_new})
-        df["E=2"]=2
-        df["MA10"]=df["E"].rolling(10).mean()
-        df["MA30"]=df["E"].rolling(30).mean()
+    if r1["E_series"]:
+        E_series_new = bot.E_variation_series_from_gene(bot.encode_gene(bot.cl_seq), window=gene_input)
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(y=df["E"], name="E"))
-        fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
-        fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
-        fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
-        fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
-        fig.update_layout(title="Biểu đồ E (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
-        st.plotly_chart(fig, use_container_width=True)
+        if E_series_new:
+            df=pd.DataFrame({"E":E_series_new})
+            df["E=2"]=2
+            df["MA10"]=df["E"].rolling(10).mean()
+            df["MA30"]=df["E"].rolling(30).mean()
 
-    # Gene Chart (1:1)
-    gene_map = {"X":1,"S":2,"M":3,"L4":4,"L5":5,"L6":6,"L7":7,"L8":8,"L9":9,"L10":10}
-    gene_sub_seq = r1["gene_series"][-gene_input:]
-    gene_y = [gene_map.get(g,0) for g in gene_sub_seq]
-    fig_gene = go.Figure()
-    fig_gene.add_trace(go.Scatter(y=gene_y, mode="lines+markers", text=gene_sub_seq, name="Gene"))
-    fig_gene.update_layout(title="Biểu đồ Gene (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)))
-    st.plotly_chart(fig_gene, use_container_width=True)
-
-    # ---------------- To/Nhỏ -----------------
-    st.subheader("TO / NHỎ")
-    st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
-    st.metric("E dự đoán",r2["E_future"])
-    st.metric("Entropy",r2["entropy"])
-    st.metric("Entropy Trend",r2["entropy_trend"])
-    st.metric("Reliability",f'{r2["reliability"]}%')
-
-    # E Chart
-    E_sub_seq2 = bot.tn_seq[-gene_input:]
-    E_series_new2 = bot.E_variation_series(E_sub_seq2)
-    if E_series_new2:
-        df2=pd.DataFrame({"E":E_series_new2})
-        df2["E=2"]=2
-        df2["MA10"]=df2["E"].rolling(10).mean()
-        df2["MA30"]=df2["E"].rolling(30).mean()
-
-        fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(y=df2["E"], name="E"))
-        fig2.add_trace(go.Scatter(y=df2["MA10"], name="MA10"))
-        fig2.add_trace(go.Scatter(y=df2["MA30"], name="MA30"))
-        fig2.add_trace(go.Scatter(y=df2["E=2"], name="E=2"))
-        fig2.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
-        fig2.update_layout(title="Biểu đồ E (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
-        st.plotly_chart(fig2, use_container_width=True)
-
-    # Gene Chart (1:1)
-    gene_sub_seq2 = r2["gene_series"][-gene_input:]
-    gene_y2 = [gene_map.get(g,0) for g in gene_sub_seq2]
-    fig_gene2 = go.Figure()
-    fig_gene2.add_trace(go.Scatter(y=gene_y2, mode="lines+markers", text=gene_sub_seq2, name="Gene"))
-    fig_gene2.update_layout(title="Biểu đồ Gene (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)))
-    st.plotly_chart(fig_gene2, use_container_width=True)
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(y=df["E"], name="E"))
+            fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
+            fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
+            fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
+            fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+            fig.update_layout(title="Biểu đồ E (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
+            st.plotly_chart(fig, use_container_width=True)
 
     st.write("Gene gần:",r1["gene"])
     st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
@@ -451,6 +422,33 @@ if "data" in st.session_state:
     st.write("Similarity score:",r1["score"])
     st.write("Average similarity:",r1["avg_similarity"])
     st.success(r1["decision"])
+
+    st.subheader("TO / NHỎ")
+    st.metric("Tổng data", r2["total_data"])
+    st.metric("Số gene dùng vẽ E", r2["gene_count_for_chart"])
+    st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
+    st.metric("E dự đoán",r2["E_future"])
+    st.metric("Entropy",r2["entropy"])
+    st.metric("Entropy Trend",r2["entropy_trend"])
+    st.metric("Reliability",f'{r2["reliability"]}%')
+
+    if r2["E_series"]:
+        E_series_new2 = bot.E_variation_series_from_gene(bot.encode_gene(bot.tn_seq), window=gene_input)
+
+        if E_series_new2:
+            df2=pd.DataFrame({"E":E_series_new2})
+            df2["E=2"]=2
+            df2["MA10"]=df2["E"].rolling(10).mean()
+            df2["MA30"]=df2["E"].rolling(30).mean()
+
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(y=df2["E"], name="E"))
+            fig2.add_trace(go.Scatter(y=df2["MA10"], name="MA10"))
+            fig2.add_trace(go.Scatter(y=df2["MA30"], name="MA30"))
+            fig2.add_trace(go.Scatter(y=df2["E=2"], name="E=2"))
+            fig2.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+            fig2.update_layout(title="Biểu đồ E (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
+            st.plotly_chart(fig2, use_container_width=True)
 
     st.write("Gene gần:",r2["gene"])
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
