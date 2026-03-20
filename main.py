@@ -351,9 +351,10 @@ input_val = st.session_state.get('data_input', "")
 raw_input=st.text_area("Nhập dữ liệu 1 2 3 4", value=input_val)
 
 if st.button("Phân tích"):
-    data=[int(x) for x in raw_input if x in "1234"]
+    st.session_state.data = [int(x) for x in raw_input if x in "1234"]
 
-    st.write("Tổng số data:", len(data))
+if "data" in st.session_state:
+    data = st.session_state.data
 
     if len(data)<300:
         st.warning("Cần ít nhất 300 dữ liệu")
