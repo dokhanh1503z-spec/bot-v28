@@ -373,10 +373,6 @@ if "data" in st.session_state:
     st.metric("Reliability",f'{r1["reliability"]}%')
 
     if r1["E_series"]:
-        df=pd.DataFrame({"E":r1["E_series"]})
-        df["E=2"]=2
-        df["MA10"]=df["E"].rolling(10).mean()
-        df["MA30"]=df["E"].rolling(30).mean()
 
         if "view_cl" not in st.session_state:
             st.session_state.view_cl = "50"
@@ -390,23 +386,33 @@ if "data" in st.session_state:
         )
 
         if view != "ALL":
-            df = df.tail(int(view))
+            sub_seq = bot.cl_seq[-int(view):]
+        else:
+            sub_seq = bot.cl_seq
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(y=df["E"], name="E"))
-        fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
-        fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
-        fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
+        E_series_new = bot.E_variation_series(sub_seq)
 
-        fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+        if E_series_new:
+            df=pd.DataFrame({"E":E_series_new})
+            df["E=2"]=2
+            df["MA10"]=df["E"].rolling(10).mean()
+            df["MA30"]=df["E"].rolling(30).mean()
 
-        fig.update_layout(
-            title="Biểu đồ E (Zoom kéo thả)",
-            xaxis=dict(rangeslider=dict(visible=True)),
-            hovermode="x unified"
-        )
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(y=df["E"], name="E"))
+            fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
+            fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
+            fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
 
-        st.plotly_chart(fig, use_container_width=True)
+            fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+            fig.update_layout(
+                title="Biểu đồ E (Zoom kéo thả)",
+                xaxis=dict(rangeslider=dict(visible=True)),
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
 
     st.write("Gene gần:",r1["gene"])
     st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
@@ -434,10 +440,6 @@ if "data" in st.session_state:
     st.metric("Reliability",f'{r2["reliability"]}%')
 
     if r2["E_series"]:
-        df=pd.DataFrame({"E":r2["E_series"]})
-        df["E=2"]=2
-        df["MA10"]=df["E"].rolling(10).mean()
-        df["MA30"]=df["E"].rolling(30).mean()
 
         if "view_tn" not in st.session_state:
             st.session_state.view_tn = "50"
@@ -451,23 +453,33 @@ if "data" in st.session_state:
         )
 
         if view != "ALL":
-            df = df.tail(int(view))
+            sub_seq = bot.tn_seq[-int(view):]
+        else:
+            sub_seq = bot.tn_seq
 
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(y=df["E"], name="E"))
-        fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
-        fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
-        fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
+        E_series_new = bot.E_variation_series(sub_seq)
 
-        fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+        if E_series_new:
+            df=pd.DataFrame({"E":E_series_new})
+            df["E=2"]=2
+            df["MA10"]=df["E"].rolling(10).mean()
+            df["MA30"]=df["E"].rolling(30).mean()
 
-        fig.update_layout(
-            title="Biểu đồ E (Zoom kéo thả)",
-            xaxis=dict(rangeslider=dict(visible=True)),
-            hovermode="x unified"
-        )
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(y=df["E"], name="E"))
+            fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
+            fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
+            fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
 
-        st.plotly_chart(fig, use_container_width=True)
+            fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+            fig.update_layout(
+                title="Biểu đồ E (Zoom kéo thả)",
+                xaxis=dict(rangeslider=dict(visible=True)),
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
 
     st.write("Gene gần:",r2["gene"])
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
