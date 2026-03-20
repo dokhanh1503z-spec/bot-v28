@@ -55,32 +55,15 @@ class UltimateBotV36:
     def same_family(self,a,b):
         return a[0]==b[0]
 
-    def calculate_E(self,streaks):
+    def calculate_E_from_streaks(self,streaks):
         s2=sum(1 for s in streaks if s==2)
         s4=sum(1 for s in streaks if s>=4)
         if s4==0:
             return None,0
         return s2/s4,len(streaks)
 
-    def dynamic_threshold(self,history_E):
-        if len(history_E)==0:
-            return 2
-        return sum(history_E)/len(history_E)
-
-    def global_E_avg(self,seq):
-        streaks=self.get_streaks(seq)
-        values=[]
-        for i in range(30,len(streaks)):
-            part=streaks[:i]
-            e,_=self.calculate_E(part)
-            if e is not None:
-                values.append(e)
-        if len(values)==0:
-            return 2
-        return sum(values)/len(values)
-
-    # ✅ SỬA CHỖ NÀY: TÍNH E TRỰC TIẾP TỪ GENE
-    def E_variation_series_from_gene(self, gene_series, window=None):
+    def E_series_from_gene(self,gene_series, window=None):
+        """Tính E trực tiếp từ gene, window = số gene lấy để tính"""
         if len(gene_series)<1:
             return None
         if window is None or window>len(gene_series):
@@ -96,17 +79,23 @@ class UltimateBotV36:
             values.append(s2/s4)
         return values if values else None
 
-    def E_variation_series(self,seq):
-        if len(seq) < 30:
-            return None
+    # Các hàm forecast, run_forecast, reliability...giữ nguyên hoàn toàn
+    def dynamic_threshold(self,history_E):
+        if len(history_E)==0:
+            return 2
+        return sum(history_E)/len(history_E)
+
+    def global_E_avg(self,seq):
         streaks=self.get_streaks(seq)
         values=[]
-        for i in range(20,len(streaks)):
+        for i in range(30,len(streaks)):
             part=streaks[:i]
-            e,_=self.calculate_E(part)
+            e,_=self.calculate_E_from_streaks(part)
             if e is not None:
                 values.append(e)
-        return values
+        if len(values)==0:
+            return 2
+        return sum(values)/len(values)
 
     def E_to_direction(self,E):
         dirs=[]
@@ -125,54 +114,41 @@ class UltimateBotV36:
         return same/len(a)
 
     def E_trend_analysis(self,seq):
-        E_series=self.E_variation_series(seq)
+        streaks=self.get_streaks(seq)
+        E_series=[]
+        for i in range(20,len(streaks)):
+            part=streaks[:i]
+            e,_=self.calculate_E_from_streaks(part)
+            if e is not None:
+                E_series.append(e)
         if not E_series or len(E_series)<150:
             return 0,0,0,0
-
         recent=E_series[-100:]
         recent_dir=self.E_to_direction(recent)
-
         long_cases=0
         short_cases=0
         matches=0
-
-        streaks = self.get_streaks(seq)
-
         for i in range(len(E_series)-150):
-
             past=E_series[i:i+100]
             past_dir=self.E_to_direction(past)
-
             sim=self.direction_similarity(recent_dir,past_dir)
-
             if sim > 0.6:
-
                 pos = sum(streaks[:i+100])
                 future_seq = seq[pos:pos+50]
-
-                if len(future_seq) < 30:
+                if len(future_seq)<30:
                     continue
-
-                future_streaks = self.get_streaks(future_seq)
-                E_future,_ = self.calculate_E(future_streaks)
-
+                future_streaks=self.get_streaks(future_seq)
+                E_future,_ = self.calculate_E_from_streaks(future_streaks)
                 if E_future is None:
                     continue
-
                 matches+=1
-
-                if E_future < 2:
+                if E_future <2:
                     long_cases+=1
                 else:
                     short_cases+=1
-
         if matches==0:
             return 0,0,0,0
-
-        long_rate = long_cases/matches*100
-        short_rate = short_cases/matches*100
-
-        return round(long_rate,1),round(short_rate,1),long_cases,short_cases
+        return round(long_cases/matches*100,1), round(short_cases/matches*100,1), long_cases, short_cases
 
     def gene_entropy(self,gene):
         total=len(gene)
@@ -223,11 +199,8 @@ class UltimateBotV36:
         streaks=self.get_streaks(seq)
         gene=self.encode_gene(streaks)
         history=self.search_history(gene,vision)
-
         history = history[:20]
-
         global_avg = self.global_E_avg(seq)
-
         long_score=0
         short_score=0
         total_similarity=0
@@ -235,30 +208,21 @@ class UltimateBotV36:
         long_cases=0
         short_cases=0
         history_E=[]
-
         for sim,h in history:
-
             pos=0
             for i in range(h+vision):
                 pos+=streaks[i]
-
             future=seq[pos:pos+30]
             if len(future)<20:
                 continue
-
             fs=self.get_streaks(future)
-            E_future,_=self.calculate_E(fs)
-
+            E_future,_=self.calculate_E_from_streaks(fs)
             if E_future is None:
                 continue
-
             history_E.append(E_future)
-
             local_th=self.dynamic_threshold(history_E)
-
             total_similarity+=sim
             weighted_E+=sim*E_future
-
             if E_future < local_th and E_future < global_avg:
                 long_score+=sim*1.2
                 long_cases+=1
@@ -272,15 +236,12 @@ class UltimateBotV36:
                 else:
                     short_score+=sim*0.5
                     short_cases+=1
-
         if total_similarity==0:
             return 0.5,0,0,(0,0),0
-
         E_pred=weighted_E/total_similarity
         total_score=long_score+short_score
         long_rate=long_score/total_score
         matches=long_cases+short_cases
-
         return long_rate,matches,total_similarity,(long_cases,short_cases),E_pred
 
     def reliability(self,avg_sim,matches,entropy):
@@ -293,35 +254,25 @@ class UltimateBotV36:
     def forecast(self,seq):
         streaks=self.get_streaks(seq)
         gene=self.encode_gene(streaks)
-
         entropy=self.gene_entropy(gene[-60:])
         entropy_move=self.entropy_trend(gene)
-
         r40,m40,s40,c40,e40=self.run_forecast(seq,40)
         r80,m80,s80,c80,e80=self.run_forecast(seq,80)
         r120,m120,s120,c120,e120=self.run_forecast(seq,120)
-
         votes=[r40,r80,r120]
         long_rate=sum(votes)/len(votes)
         short_rate=1-long_rate
-
         matches=m40+m80+m120
         score=s40+s80+s120
         avg_similarity=score/matches if matches>0 else 0
-
         reliability=self.reliability(avg_similarity,matches,entropy)
-
         long_cases=c40[0]+c80[0]+c120[0]
         short_cases=c40[1]+c80[1]+c120[1]
-
         current_streaks=streaks[-120:]
-        E_now,E_sample=self.calculate_E(current_streaks)
-
+        E_now,E_sample=self.calculate_E_from_streaks(current_streaks)
         E_future=(e40+e80+e120)/3
-
         decision_flag = 1 if long_rate > 0.5 else 0
         self.pred_history.append(decision_flag)
-
         if entropy<1.2 and entropy_move>0.05 and long_rate>0.6:
             decision="🔥 SIÊU CẦU DÀI"
         elif long_rate>0.65:
@@ -333,8 +284,7 @@ class UltimateBotV36:
         else:
             decision="🛡️ KHÔNG RÕ"
 
-        # Tạo E_series từ gene trực tiếp
-        E_series_gene = self.E_variation_series_from_gene(gene, window=50)
+        E_series_gene = self.E_series_from_gene(gene, window=50)
 
         return {
             "E_now":round(E_now,2) if E_now else 0,
@@ -356,6 +306,8 @@ class UltimateBotV36:
             "total_data":len(seq),
             "gene_count_for_chart":len(E_series_gene) if E_series_gene else 0
         }
+
+# --------------------------- UI ---------------------------
 
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
@@ -380,38 +332,40 @@ if "data" in st.session_state:
 
     bot=UltimateBotV36(data)
 
-    # Nhập số lượng gene để vẽ biểu đồ
-    gene_input = st.number_input("Nhập số lượng gene để vẽ biểu đồ E:", min_value=10, max_value=1000, value=50, step=10)
+    # Cho phép nhập số gene cho từng chart
+    st.sidebar.header("Cấu hình biểu đồ E")
+    cl_gene_input = st.sidebar.number_input("Số gene vẽ CL", min_value=10, max_value=1000, value=50, step=10)
+    tn_gene_input = st.sidebar.number_input("Số gene vẽ TN", min_value=10, max_value=1000, value=50, step=10)
 
     r1=bot.forecast(bot.cl_seq)
     r2=bot.forecast(bot.tn_seq)
 
+    # --------------------------- CL ---------------------------
     st.subheader("CHẴN / LẺ")
-    st.metric("Tổng data", r1["total_data"])
-    st.metric("Số gene dùng vẽ E", r1["gene_count_for_chart"])
+    st.metric("Tổng data từ GG Sheet", len(bot.cl_seq))
+    st.metric("Số gene dùng vẽ biểu đồ", cl_gene_input)
     st.metric("E hiện tại",f'{r1["E_now"]} ({r1["E_sample"]} streak)')
     st.metric("E dự đoán",r1["E_future"])
     st.metric("Entropy",r1["entropy"])
     st.metric("Entropy Trend",r1["entropy_trend"])
     st.metric("Reliability",f'{r1["reliability"]}%')
 
-    if r1["E_series"]:
-        E_series_new = bot.E_variation_series_from_gene(bot.encode_gene(bot.cl_seq), window=gene_input)
-
-        if E_series_new:
-            df=pd.DataFrame({"E":E_series_new})
-            df["E=2"]=2
-            df["MA10"]=df["E"].rolling(10).mean()
-            df["MA30"]=df["E"].rolling(30).mean()
-
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(y=df["E"], name="E"))
-            fig.add_trace(go.Scatter(y=df["MA10"], name="MA10"))
-            fig.add_trace(go.Scatter(y=df["MA30"], name="MA30"))
-            fig.add_trace(go.Scatter(y=df["E=2"], name="E=2"))
-            fig.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
-            fig.update_layout(title="Biểu đồ E (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
-            st.plotly_chart(fig, use_container_width=True)
+    # Vẽ biểu đồ E trực tiếp từ gene
+    gene_cl = bot.encode_gene(bot.cl_seq)
+    E_series_cl = bot.E_series_from_gene(gene_cl, window=cl_gene_input)
+    if E_series_cl:
+        df_cl=pd.DataFrame({"E":E_series_cl})
+        df_cl["E=2"]=2
+        df_cl["MA10"]=df_cl["E"].rolling(10).mean()
+        df_cl["MA30"]=df_cl["E"].rolling(30).mean()
+        fig_cl = go.Figure()
+        fig_cl.add_trace(go.Scatter(y=df_cl["E"], name="E"))
+        fig_cl.add_trace(go.Scatter(y=df_cl["MA10"], name="MA10"))
+        fig_cl.add_trace(go.Scatter(y=df_cl["MA30"], name="MA30"))
+        fig_cl.add_trace(go.Scatter(y=df_cl["E=2"], name="E=2"))
+        fig_cl.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+        fig_cl.update_layout(title="Biểu đồ E CL", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
+        st.plotly_chart(fig_cl, use_container_width=True)
 
     st.write("Gene gần:",r1["gene"])
     st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
@@ -423,32 +377,31 @@ if "data" in st.session_state:
     st.write("Average similarity:",r1["avg_similarity"])
     st.success(r1["decision"])
 
+    # --------------------------- TN ---------------------------
     st.subheader("TO / NHỎ")
-    st.metric("Tổng data", r2["total_data"])
-    st.metric("Số gene dùng vẽ E", r2["gene_count_for_chart"])
+    st.metric("Tổng data từ GG Sheet", len(bot.tn_seq))
+    st.metric("Số gene dùng vẽ biểu đồ", tn_gene_input)
     st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
     st.metric("E dự đoán",r2["E_future"])
     st.metric("Entropy",r2["entropy"])
     st.metric("Entropy Trend",r2["entropy_trend"])
     st.metric("Reliability",f'{r2["reliability"]}%')
 
-    if r2["E_series"]:
-        E_series_new2 = bot.E_variation_series_from_gene(bot.encode_gene(bot.tn_seq), window=gene_input)
-
-        if E_series_new2:
-            df2=pd.DataFrame({"E":E_series_new2})
-            df2["E=2"]=2
-            df2["MA10"]=df2["E"].rolling(10).mean()
-            df2["MA30"]=df2["E"].rolling(30).mean()
-
-            fig2 = go.Figure()
-            fig2.add_trace(go.Scatter(y=df2["E"], name="E"))
-            fig2.add_trace(go.Scatter(y=df2["MA10"], name="MA10"))
-            fig2.add_trace(go.Scatter(y=df2["MA30"], name="MA30"))
-            fig2.add_trace(go.Scatter(y=df2["E=2"], name="E=2"))
-            fig2.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
-            fig2.update_layout(title="Biểu đồ E (Zoom kéo thả)", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
-            st.plotly_chart(fig2, use_container_width=True)
+    gene_tn = bot.encode_gene(bot.tn_seq)
+    E_series_tn = bot.E_series_from_gene(gene_tn, window=tn_gene_input)
+    if E_series_tn:
+        df_tn=pd.DataFrame({"E":E_series_tn})
+        df_tn["E=2"]=2
+        df_tn["MA10"]=df_tn["E"].rolling(10).mean()
+        df_tn["MA30"]=df_tn["E"].rolling(30).mean()
+        fig_tn = go.Figure()
+        fig_tn.add_trace(go.Scatter(y=df_tn["E"], name="E"))
+        fig_tn.add_trace(go.Scatter(y=df_tn["MA10"], name="MA10"))
+        fig_tn.add_trace(go.Scatter(y=df_tn["MA30"], name="MA30"))
+        fig_tn.add_trace(go.Scatter(y=df_tn["E=2"], name="E=2"))
+        fig_tn.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+        fig_tn.update_layout(title="Biểu đồ E TN", xaxis=dict(rangeslider=dict(visible=True)), hovermode="x unified")
+        st.plotly_chart(fig_tn, use_container_width=True)
 
     st.write("Gene gần:",r2["gene"])
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
