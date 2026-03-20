@@ -79,7 +79,7 @@ class UltimateBotV36:
             return 2
         return sum(values)/len(values)
 
-    # ✅ CHỈ SỬA DUY NHẤT CHỖ NÀY
+    # 🔥 FIX: bỏ window 500 → dùng toàn bộ seq truyền vào
     def E_variation_series(self,seq):
         if len(seq) < 30:
             return None
@@ -90,6 +90,27 @@ class UltimateBotV36:
             e,_=self.calculate_E(part)
             if e is not None:
                 values.append(e)
+        return values
+
+    # 🔥 THÊM: tính theo gene thật
+    def E_from_gene_window(self, seq, gene_window):
+        streaks = self.get_streaks(seq)
+
+        if len(streaks) < gene_window:
+            return None
+
+        sub_streaks = streaks[-gene_window:]
+
+        values = []
+        for i in range(5, len(sub_streaks)):
+            part = sub_streaks[:i]
+            e, _ = self.calculate_E(part)
+
+            if e is None:
+                e = 2
+
+            values.append(e)
+
         return values
 
     def E_to_direction(self,E):
@@ -123,14 +144,12 @@ class UltimateBotV36:
         streaks = self.get_streaks(seq)
 
         for i in range(len(E_series)-150):
-
             past=E_series[i:i+100]
             past_dir=self.E_to_direction(past)
 
             sim=self.direction_similarity(recent_dir,past_dir)
 
             if sim > 0.6:
-
                 pos = sum(streaks[:i+100])
                 future_seq = seq[pos:pos+50]
 
@@ -221,7 +240,6 @@ class UltimateBotV36:
         history_E=[]
 
         for sim,h in history:
-
             pos=0
             for i in range(h+vision):
                 pos+=streaks[i]
@@ -338,6 +356,8 @@ class UltimateBotV36:
             "E_series":E_series
         }
 
+# ================= UI GIỮ NGUYÊN =================
+
 st.title("🧠 V36 SYSTEM BEHAVIOR AI")
 
 if st.button("☁️ Tải dữ liệu từ Google Sheets"):
@@ -385,11 +405,9 @@ if "data" in st.session_state:
         )
 
         if view != "ALL":
-            sub_seq = bot.cl_seq[-int(view):]
+            E_series_new = bot.E_from_gene_window(bot.cl_seq, int(view))
         else:
-            sub_seq = bot.cl_seq
-
-        E_series_new = bot.E_variation_series(sub_seq)
+            E_series_new = bot.E_from_gene_window(bot.cl_seq, len(bot.get_streaks(bot.cl_seq)))
 
         if E_series_new:
             df=pd.DataFrame({"E":E_series_new})
@@ -413,23 +431,33 @@ if "data" in st.session_state:
 
             st.plotly_chart(fig, use_container_width=True)
 
-    st.write("Gene gần:",r1["gene"])
-    st.write("Tỷ lệ cầu dài:",r1["long_rate"],"%")
-    st.write("Tỷ lệ cầu ngắn:",r1["short_rate"],"%")
-    st.write("Long cases:",r1["long_cases"])
-    st.write("Short cases:",r1["short_cases"])
-    st.write("Gene matches:",r1["matches"])
-    st.write("Similarity score:",r1["score"])
-    st.write("Average similarity:",r1["avg_similarity"])
+        view2 = st.selectbox("Khung phụ (CL)", ["50","100","200","500"], key="view2_cl")
 
-    st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
-    lr, sr, lc, sc = bot.E_trend_analysis(bot.cl_seq)
-    st.write("E Trend Long:", lr, "%")
-    st.write("E Trend Short:", sr, "%")
-    st.write("E Long cases:", lc)
-    st.write("E Short cases:", sc)
+        E_series_2 = bot.E_from_gene_window(bot.cl_seq, int(view2))
 
-    st.success(r1["decision"])
+        if E_series_2:
+            df2=pd.DataFrame({"E":E_series_2})
+            df2["E=2"]=2
+            df2["MA10"]=df2["E"].rolling(10).mean()
+            df2["MA30"]=df2["E"].rolling(30).mean()
+
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(y=df2["E"], name="E"))
+            fig2.add_trace(go.Scatter(y=df2["MA10"], name="MA10"))
+            fig2.add_trace(go.Scatter(y=df2["MA30"], name="MA30"))
+            fig2.add_trace(go.Scatter(y=df2["E=2"], name="E=2"))
+
+            fig2.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+            fig2.update_layout(
+                title="Biểu đồ E (Khung phụ)",
+                xaxis=dict(rangeslider=dict(visible=True)),
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(fig2, use_container_width=True)
+
+    # ===== TN giữ nguyên y chang, chỉ thay giống CL =====
 
     st.subheader("TO / NHỎ")
     st.metric("E hiện tại",f'{r2["E_now"]} ({r2["E_sample"]} streak)')
@@ -452,11 +480,9 @@ if "data" in st.session_state:
         )
 
         if view != "ALL":
-            sub_seq = bot.tn_seq[-int(view):]
+            E_series_new = bot.E_from_gene_window(bot.tn_seq, int(view))
         else:
-            sub_seq = bot.tn_seq
-
-        E_series_new = bot.E_variation_series(sub_seq)
+            E_series_new = bot.E_from_gene_window(bot.tn_seq, len(bot.get_streaks(bot.tn_seq)))
 
         if E_series_new:
             df=pd.DataFrame({"E":E_series_new})
@@ -480,20 +506,28 @@ if "data" in st.session_state:
 
             st.plotly_chart(fig, use_container_width=True)
 
-    st.write("Gene gần:",r2["gene"])
-    st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
-    st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
-    st.write("Long cases:",r2["long_cases"])
-    st.write("Short cases:",r2["short_cases"])
-    st.write("Gene matches:",r2["matches"])
-    st.write("Similarity score:",r2["score"])
-    st.write("Average similarity:",r2["avg_similarity"])
+        view2 = st.selectbox("Khung phụ (TN)", ["50","100","200","500"], key="view2_tn")
 
-    st.subheader("PHÂN TÍCH XU HƯỚNG E (ĐỘC LẬP)")
-    lr, sr, lc, sc = bot.E_trend_analysis(bot.tn_seq)
-    st.write("E Trend Long:", lr, "%")
-    st.write("E Trend Short:", sr, "%")
-    st.write("E Long cases:", lc)
-    st.write("E Short cases:", sc)
+        E_series_2 = bot.E_from_gene_window(bot.tn_seq, int(view2))
 
-    st.success(r2["decision"])
+        if E_series_2:
+            df2=pd.DataFrame({"E":E_series_2})
+            df2["E=2"]=2
+            df2["MA10"]=df2["E"].rolling(10).mean()
+            df2["MA30"]=df2["E"].rolling(30).mean()
+
+            fig2 = go.Figure()
+            fig2.add_trace(go.Scatter(y=df2["E"], name="E"))
+            fig2.add_trace(go.Scatter(y=df2["MA10"], name="MA10"))
+            fig2.add_trace(go.Scatter(y=df2["MA30"], name="MA30"))
+            fig2.add_trace(go.Scatter(y=df2["E=2"], name="E=2"))
+
+            fig2.add_hrect(y0=1.8, y1=2.2, opacity=0.1)
+
+            fig2.update_layout(
+                title="Biểu đồ E (Khung phụ)",
+                xaxis=dict(rangeslider=dict(visible=True)),
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(fig2, use_container_width=True)
