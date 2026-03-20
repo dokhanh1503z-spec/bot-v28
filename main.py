@@ -454,4 +454,10 @@ if "data" in st.session_state:
 
     st.write("Gene gần:",r2["gene"])
     st.write("Tỷ lệ cầu dài:",r2["long_rate"],"%")
-    st.write("Tỷ
+    st.write("Tỷ lệ cầu ngắn:",r2["short_rate"],"%")
+    st.write("Long cases:",r2["long_cases"])
+    st.write("Short cases:",r2["short_cases"])
+    st.write("Gene matches:",r2["matches"])
+    st.write("Similarity score:",r2["score"])
+    st.write("Average similarity:",r2["avg_similarity"])
+    st.success(r2["decision"])
